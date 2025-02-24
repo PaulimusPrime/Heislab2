@@ -11,17 +11,8 @@ var backup_inc bool
 var ID int
 
 func main() {
-	ID = 10000
+	//ID = 1
 	print("\n--- Backup phase ---\n")
-	// file, err := os.Open("data.txt")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer func() {
-	// 	if err = file.Close(); err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// }()
 
 	for {
 		backupChecking()
@@ -36,7 +27,8 @@ func main() {
 }
 
 const (
-	broadCastPort = "30000"
+	str_broadCastPort = "40000"
+	int_broadCastPort = 40000
 )
 
 func IsMasterAlive(masterID int) bool {
@@ -49,7 +41,7 @@ func IsMasterAlive(masterID int) bool {
 }
 
 func BroadcastMasterID(masterID int) {
-	addr, _ := net.ResolveUDPAddr("udp", "255.255.255.255:"+broadCastPort)
+	addr, _ := net.ResolveUDPAddr("udp", "255.255.255.255:"+str_broadCastPort)
 	conn, _ := net.DialUDP("udp", nil, addr)
 	fmt.Print("inside broadcast \n")
 	defer conn.Close()
@@ -61,7 +53,7 @@ func BroadcastMasterID(masterID int) {
 }
 
 func ListenForMaster() int {
-	addr, _ := net.ResolveUDPAddr("udp", ":"+broadCastPort)
+	addr, _ := net.ResolveUDPAddr("udp", ":"+str_broadCastPort)
 	conn, _ := net.ListenUDP("udp", addr)
 	defer conn.Close()
 
@@ -91,7 +83,7 @@ func backupCreation(ID int) {
 
 func backupChecking() {
 	addr := net.UDPAddr{
-		Port: 30000,
+		Port: int_broadCastPort,
 		IP:   net.ParseIP("0.0.0.0"),
 	}
 	conn, err := net.ListenUDP("udp", &addr)
@@ -120,3 +112,9 @@ func backupChecking() {
 		fmt.Printf("Received %d bytes from %s: %s\n", n, addr, string(buffer[:n]))
 	}
 }
+
+func Bouncer() { //He checks ID
+
+}
+
+//Hver gang en heis initialiserer seg selv, spør den " whos here?", den får svar av feks. 4 og tar over lytteoppgaven som nr 5. (Kun den siste lytter)

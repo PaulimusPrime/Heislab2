@@ -13,7 +13,7 @@ import (
 
 func main() {
 
-	elevio.Init("localhost:10000", config.NumFloors)
+	elevio.Init("localhost:10001", config.NumFloors)
 
 	var (
 		e                 elevator.Elevator
@@ -71,8 +71,8 @@ func main() {
 		}
 
 		//masterfunctions.BroadcastMasterID(10000)
-		//masterfunctions.BroadcastMasterID(10001)
-		masterfunctions.ListenForMaster()
+		masterfunctions.BroadcastMasterID(10001)
+		//masterfunctions.ListenForMaster()
 
 		// if e.ID==1{
 
