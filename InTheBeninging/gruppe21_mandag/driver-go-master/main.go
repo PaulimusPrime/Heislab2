@@ -13,15 +13,15 @@ import (
 
 func main() {
 
-	elevio.Init("localhost:15657", config.NumFloors)
+	elevio.Init("localhost:10000", config.NumFloors)
 
 	var (
 		e                 elevator.Elevator
-		prevRequestButton [config.NumFloors][config.NumButtons] bool
+		prevRequestButton [config.NumFloors][config.NumButtons]bool
 		prevFloorSensor   = -1
-		obstruction		  bool
+		obstruction       bool
 	)
-	
+
 	//initializing elevator
 	fmt.Printf("Elevator starting \n")
 	elevator.InitializeElevator(&e, &prevRequestButton)
@@ -43,7 +43,7 @@ func main() {
 			elevio.SetButtonLamp(button.Button, button.Floor, true)
 			fsm.Fsm_onRequestButtonPress(&e, button.Floor, button.Button)
 
-		case floor := <- drv_floors:
+		case floor := <-drv_floors:
 			if floor != -1 && floor != prevFloorSensor {
 				fsm.Fsm_onFloorArrival(&e, floor)
 			} else {
@@ -51,35 +51,35 @@ func main() {
 			}
 
 		case <-timer.TimerChannel:
-			if !obstruction{
+			if !obstruction {
 				fsm.Fsm_onDoorTimeout(&e)
-				obstruction=false
-			}else {
+				obstruction = false
+			} else {
 				timer.StartTimer(config.ObstructionDurationS)
 			}
 
-		case <- drv_obstr:
-			if  e.Behaviour==elevator.EB_DoorOpen {
+		case <-drv_obstr:
+			if e.Behaviour == elevator.EB_DoorOpen {
 				elevio.SetDoorOpenLamp(true)
 				obstruction = !obstruction
 			}
-		case stop:= <-drv_stop:
-			if stop{
+		case stop := <-drv_stop:
+			if stop {
 				elevio.SetMotorDirection(elevio.MD_Stop)
-				e.Behaviour=elevator.EB_Idle
+				e.Behaviour = elevator.EB_Idle
 			}
+		}
+
+		//masterfunctions.BroadcastMasterID(10000)
+		//masterfunctions.BroadcastMasterID(10001)
+		masterfunctions.ListenForMaster()
+
+		// if e.ID==1{
+
+		// }else {
+		// 	master_functions.ListenForMaster()
+		// }
+
+		time.Sleep(time.Duration(config.InputPollRate))
 	}
-	
-	//masterfunctions.BroadcastMasterID(10000)
-	// masterfunctions.BroadcastMasterID(10000)
-	masterfunctions.ListenForMaster()
-
-	// if e.ID==1{
-
-	// }else {
-	// 	master_functions.ListenForMaster()
-	// }
-
-	time.Sleep(time.Duration(config.InputPollRate))
-}
 }
