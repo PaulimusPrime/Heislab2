@@ -3,30 +3,44 @@ package main
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 )
 
 var (
-	m = make(map[string]bool) // Map with information of all elements
+	m          = make(map[string]bool) // Map with information of all elements
+	masterID   int
+	backup_inc bool
 )
 
 const (
 	bufsize       = 1024
-	port          = "30001"
-	ID            = "PC1" // ID of working computer
+	port          = 30001
+	ID            = "PC2" // ID of working computer
 	broadCastPort = "30001"
 	numNodes      = 3 //The amount of elevators in program
 )
 
 func main() {
-	//Initiate elevators
-	initiateMap()
 
 	// Start UDP listener
 	go listenForMessages()
 
 	// Start broadcasting
 	broadcastID(ID)
+
+	print("\n--- Backup phase ---\n")
+	for {
+		heartBeatChecking()
+		if backup_inc {
+			fmt.Printf("MasterID: %d \n", masterID)
+			//backupCreation(ID)
+			fmt.Printf(".. timed out\n")
+			backup_inc = false
+			fmt.Printf("\n-- Primary phase --\n")
+			broadcastID(ID)
+		}
+	}
 }
 
 // / Function to listen for incoming UDP messages
@@ -86,8 +100,40 @@ func broadcastID(id string) {
 	}
 }
 
-func initiateMap() {
-	m[ID] = false
-	m["PC2"] = false
-	m["PC3"] = false
+func heartBeatChecking() {
+	addr := net.UDPAddr{
+		Port: port,
+		IP:   net.ParseIP("0.0.0.0"),
+	}
+	conn, err := net.ListenUDP("udp", &addr)
+	if err != nil {
+		fmt.Println("error")
+		return
+	}
+	defer conn.Close()
+	buffer := make([]byte, 1024)
+
+	for {
+		conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+
+		n, addr, err := conn.ReadFromUDP(buffer)
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				fmt.Print("No stream")
+				print("Master stopped updating\n")
+				backup_inc = true
+
+				break
+			} else {
+				fmt.Print("Error receiving packet", err)
+			}
+			continue
+		}
+
+		masterID, err = strconv.Atoi(string(buffer[:n]))
+		if err != nil {
+			print("error")
+		}
+		fmt.Printf("MasterID: %d at: %s\n", masterID, addr)
+	}
 }
