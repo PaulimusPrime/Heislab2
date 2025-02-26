@@ -19,9 +19,14 @@ var (
 )
 
 func main() {
-
-	go BroadcastMasterID(ID)
-	go DiscoverPeers()
+	non_stopchan := make(chan bool)
+	stopchan := make(chan bool)
+	go BroadcastID(ID,stopchan)
+	go DiscoverPeers(stopchan)
+	go func(){
+		time.Sleep(6*time.Second)
+		stopchan <- true
+	}()
 
 	print("\n--- Backup phase ---\n")
 	for {
@@ -32,9 +37,10 @@ func main() {
 			fmt.Printf(".. timed out\n")
 			backup_inc = false
 			fmt.Printf("\n-- Primary phase --\n")
-			BroadcastMasterID(ID)
+			BroadcastID(masterID,non_stopchan)
 		}
 	}
+
 }
 
 func IsMasterAlive(masterID int) bool {
@@ -46,7 +52,11 @@ func IsMasterAlive(masterID int) bool {
 	return true
 }
 
-func BroadcastMasterID(masterID int) {
+func BroadcastID(masterID int, stopchan chan bool) {
+	select{
+	case <- stopchan:
+		return
+	default:
 	addr, _ := net.ResolveUDPAddr("udp", "255.255.255.255:"+strconv.Itoa(broadCastPort))
 	conn, _ := net.DialUDP("udp", nil, addr)
 	fmt.Print("inside broadcast \n")
@@ -56,6 +66,8 @@ func BroadcastMasterID(masterID int) {
 		_, _ = conn.Write([]byte(message))
 		time.Sleep(2 * time.Second)
 	}
+	}
+	
 }
 
 func backupChecking() {
@@ -80,7 +92,7 @@ func backupChecking() {
 				fmt.Print("No stream")
 				print("Master stopped updating\n")
 				backup_inc = true
-				DecideNextMaster()
+				//DecideNextMaster()
 				break
 			} else {
 				fmt.Print("Error receiving packet", err)
@@ -95,13 +107,29 @@ func backupChecking() {
 	}
 }
 
-func DecideNextMaster() int {
-	var nextMasterID int
+// func DecideNextMaster() int {
+// 	var nextMasterID int
+// 	higherExists := false
 
-	return nextMasterID
-}
+// 	for id, ip := range m {
+// 		if id > ID {
+// 			higherExists = true
+// 			go sendMessage(ip, "ELECTION "+strconv.Itoa(ID)) // Lag Sendmessage som sier ifra til neste datamaskin, ip at den skal sjekkes som kandidat
+// 		}
+// 	}
+// 	if !higherExists{
+// 		declareMaster() //Deklarer seg selv som master
+// 	}
+// 	return nextMasterID
+// }
 
-func DiscoverPeers() {
+// func Sendmessage(){
+
+func DiscoverPeers(stopchan chan bool) {
+	select{
+	case <- stopchan:
+		return
+	default:
 	var peerID int
 	addr := net.UDPAddr{
 		Port: broadCastPort,
@@ -116,6 +144,7 @@ func DiscoverPeers() {
 
 	buffer := make([]byte, 1024)
 	for {
+
 		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 
 		n, addr, err := conn.ReadFromUDP(buffer)
@@ -131,9 +160,10 @@ func DiscoverPeers() {
 			return
 		}
 		m[peerID] = true
-		fmt.Printf(m)
+
 	}
 
 	//strconv.Atoi(string(buffer[:n]))
 	//m[ID] := true
+}
 }
