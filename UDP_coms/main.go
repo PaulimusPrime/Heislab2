@@ -3,31 +3,37 @@ package main
 import (
 	"fmt"
 	"net"
-	"os"
 	"time"
 )
 
-const port = "30000"
+var (
+	m = make(map[string]bool) // Map with information of all elements
+)
+
+const (
+	bufsize       = 1024
+	port          = "30001"
+	ID            = "PC1" // ID of working computer
+	broadCastPort = "30001"
+	numNodes      = 3 //The amount of elevators in program
+)
 
 func main() {
-	// Get computer ID (hostname)
-	hostname, err := os.Hostname()
-	if err != nil {
-		fmt.Println("Error getting hostname:", err)
-		return
-	}
+	//Initiate elevators
+	initiateMap()
 
 	// Start UDP listener
 	go listenForMessages()
 
 	// Start broadcasting
-	broadcastID(hostname)
+	broadcastID(ID)
 }
 
-// Function to listen for incoming UDP messages
+// / Function to listen for incoming UDP messages
 func listenForMessages() {
+
 	addr := net.UDPAddr{
-		Port: 30000,
+		Port: 30001,
 		IP:   net.ParseIP("0.0.0.0"), // Listen on all interfaces
 	}
 
@@ -40,24 +46,31 @@ func listenForMessages() {
 
 	buffer := make([]byte, 1024)
 	for {
+		var peerID string
 		n, srcAddr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
 			fmt.Println("Error reading UDP message:", err)
 			continue
 		}
 
-		fmt.Printf("Received from %s: %s\n", srcAddr, string(buffer[:n]))
+		if ID == string(buffer[:n]) {
+			print("Recieving message from myself\n")
+		} else {
+			fmt.Printf("Received from %s: %s\n", srcAddr, string(buffer[:n]))
+		}
+		peerID = string(buffer[:n])
+		m[peerID] = true
+		fmt.Println(m)
 	}
+
 }
 
 // Function to broadcast the computer's ID
 func broadcastID(id string) {
-	broadcastAddr := net.UDPAddr{
-		Port: 30000,
-		IP:   net.IPv4bcast, // Broadcast address
-	}
 
-	conn, err := net.DialUDP("udp", nil, &broadcastAddr)
+	addr, _ := net.ResolveUDPAddr("udp", "255.255.255.255:"+broadCastPort)
+	conn, err := net.DialUDP("udp", nil, addr) // Listen to messages on the given address
+	fmt.Print("inside broadcast \n")
 	if err != nil {
 		fmt.Println("Error setting up UDP connection:", err)
 		return
@@ -69,7 +82,12 @@ func broadcastID(id string) {
 		if err != nil {
 			fmt.Println("Error broadcasting ID:", err)
 		}
-
-		time.Sleep(5 * time.Second) // Broadcast every 5 seconds
+		time.Sleep(3 * time.Second) // Broadcast every 3 seconds
 	}
+}
+
+func initiateMap() {
+	m[ID] = false
+	m["PC2"] = false
+	m["PC3"] = false
 }
