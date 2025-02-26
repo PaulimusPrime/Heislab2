@@ -21,12 +21,11 @@ var (
 func main() {
 	non_stopchan := make(chan bool)
 	stopchan := make(chan bool)
-	go BroadcastID(ID,stopchan)
+	go BroadcastID(ID, stopchan)
 	go DiscoverPeers(stopchan)
-	go func(){
-		time.Sleep(6*time.Second)
-		stopchan <- true
-	}()
+
+	time.Sleep(4 * time.Second)
+	stopchan <- true
 
 	print("\n--- Backup phase ---\n")
 	for {
@@ -37,7 +36,7 @@ func main() {
 			fmt.Printf(".. timed out\n")
 			backup_inc = false
 			fmt.Printf("\n-- Primary phase --\n")
-			BroadcastID(masterID,non_stopchan)
+			BroadcastID(masterID, non_stopchan)
 		}
 	}
 
@@ -53,21 +52,21 @@ func IsMasterAlive(masterID int) bool {
 }
 
 func BroadcastID(masterID int, stopchan chan bool) {
-	select{
-	case <- stopchan:
+	select {
+	case <-stopchan:
 		return
 	default:
-	addr, _ := net.ResolveUDPAddr("udp", "255.255.255.255:"+strconv.Itoa(broadCastPort))
-	conn, _ := net.DialUDP("udp", nil, addr)
-	fmt.Print("inside broadcast \n")
-	defer conn.Close()
-	for {
-		message := fmt.Sprintf("%d", masterID)
-		_, _ = conn.Write([]byte(message))
-		time.Sleep(2 * time.Second)
+		addr, _ := net.ResolveUDPAddr("udp", "255.255.255.255:"+strconv.Itoa(broadCastPort))
+		conn, _ := net.DialUDP("udp", nil, addr)
+		fmt.Print("inside broadcast \n")
+		defer conn.Close()
+		for {
+			message := fmt.Sprintf("%d", masterID)
+			_, _ = conn.Write([]byte(message))
+			time.Sleep(2 * time.Second)
+		}
 	}
-	}
-	
+
 }
 
 func backupChecking() {
@@ -126,44 +125,44 @@ func backupChecking() {
 // func Sendmessage(){
 
 func DiscoverPeers(stopchan chan bool) {
-	select{
-	case <- stopchan:
+	select {
+	case <-stopchan:
 		return
 	default:
-	var peerID int
-	addr := net.UDPAddr{
-		Port: broadCastPort,
-		IP:   net.ParseIP("0.0.0.0"),
-	}
-	conn, err := net.ListenUDP("udp", &addr)
-	if err != nil {
-		fmt.Println("error")
-		return
-	}
-	defer conn.Close()
-
-	buffer := make([]byte, 1024)
-	for {
-
-		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-
-		n, addr, err := conn.ReadFromUDP(buffer)
+		var peerID int
+		addr := net.UDPAddr{
+			Port: broadCastPort,
+			IP:   net.ParseIP("0.0.0.0"),
+		}
+		conn, err := net.ListenUDP("udp", &addr)
 		if err != nil {
 			fmt.Println("error")
 			return
 		}
+		defer conn.Close()
 
-		fmt.Printf("Received %d bytes from %s: %s\n", n, addr, string(buffer[:n]))
-		peerID, err = strconv.Atoi(string(buffer[:n]))
-		if err != nil {
-			print("error")
-			return
+		buffer := make([]byte, 1024)
+		for {
+
+			conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+
+			n, addr, err := conn.ReadFromUDP(buffer)
+			if err != nil {
+				fmt.Println("error")
+				return
+			}
+
+			fmt.Printf("Received %d bytes from %s: %s\n", n, addr, string(buffer[:n]))
+			peerID, err = strconv.Atoi(string(buffer[:n]))
+			if err != nil {
+				print("error")
+				return
+			}
+			m[peerID] = true
+
 		}
-		m[peerID] = true
 
+		//strconv.Atoi(string(buffer[:n]))
+		//m[ID] := true
 	}
-
-	//strconv.Atoi(string(buffer[:n]))
-	//m[ID] := true
-}
 }
