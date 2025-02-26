@@ -58,7 +58,6 @@ func BroadcastMasterID(masterID int) {
 	}
 }
 
-
 func backupChecking() {
 	addr := net.UDPAddr{
 		Port: broadCastPort,
@@ -132,8 +131,8 @@ func DiscoverPeers() {
 			return
 		}
 		m[peerID] = true
+		fmt.Printf(m)
 	}
-
 
 	//strconv.Atoi(string(buffer[:n]))
 	//m[ID] := true
