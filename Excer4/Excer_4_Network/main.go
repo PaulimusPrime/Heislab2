@@ -27,7 +27,7 @@ func main() {
 	for {
 		backupChecking()
 		if backup_inc {
-			fmt.Printf("%d \n", masterID)
+			fmt.Printf("MasterID: %d \n", masterID)
 			//backupCreation(ID)
 			fmt.Printf(".. timed out\n")
 			backup_inc = false
@@ -52,12 +52,11 @@ func BroadcastMasterID(masterID int) {
 	fmt.Print("inside broadcast \n")
 	defer conn.Close()
 	for {
-		message := fmt.Sprintf("%d", masterID)
+		message := fmt.Sprintf("Hello from master: %d", masterID)
 		_, _ = conn.Write([]byte(message))
 		time.Sleep(2 * time.Second)
 	}
 }
-
 
 func backupChecking() {
 	addr := net.UDPAddr{
@@ -133,7 +132,6 @@ func DiscoverPeers() {
 		}
 		m[peerID] = true
 	}
-
 
 	//strconv.Atoi(string(buffer[:n]))
 	//m[ID] := true
