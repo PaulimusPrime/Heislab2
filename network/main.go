@@ -24,8 +24,9 @@ type MasterMsg struct {
 	MasterID string
 }
 
-var Masterid string = "1"
-
+var Masterid string
+var sjekk bool
+var stop bool
 func main() {
 	// Our id can be anything. Here we pass it on the command line, using
 	//  `go run main.go -id=our_id`
@@ -69,7 +70,6 @@ func main() {
 	// ... and start the transmitter/receiver pair on some port
 	// These functions can take any number of channels! It is also possible to
 	//  start multiple transmitters/receivers on the same port.
-	go bcast.Transmitter(17082, MasterbcastTx)
 	go bcast.Receiver(17082, MasterbcastRx)
 	// The example message. We just send one of these every second.
 	go func() {
@@ -81,27 +81,34 @@ func main() {
 		}
 	}()
 	go func() {
-		if Masterid == id {
-			MasterMsg := MasterMsg{"I am the master", Masterid}
-			for {
-				MasterbcastTx <- MasterMsg
-				MasterbcastTx <- MasterMsg
-				time.Sleep(1 * time.Second)
-			}
-		} else if Masterid != id {
-			MasterMsg := MasterMsg{"I am the slave", id}
+			MasterMsg := MasterMsg{"I am something", id}
 			for {
 				MasterbcastTx <- MasterMsg
 				time.Sleep(1 * time.Second)
+				if stop {
+					break
+				}
 			}
-		}
 	}()
 
 	fmt.Println("Started")
+	timeout := time.After(5 * time.Second)
 	for {
+		if Masterid == id  && Masterid != "" && !sjekk{
+			go bcast.Transmitter(17082, MasterbcastTx)
+			sjekk = true
+			stop = true
+			go func(){
+				MasterMsg := MasterMsg{"I am the master", Masterid}
+				for {
+					MasterbcastTx <- MasterMsg
+					time.Sleep(1 * time.Second)
+				}
+			}()
+		}
 		select {
 		case p := <-peerUpdateCh:
-			var lostLelevator string = ""
+			var lostLelevator string = "99"
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", p.Peers)
 			fmt.Printf("  New:      %q\n", p.New)
@@ -115,6 +122,14 @@ func main() {
 
 		case <-helloRx:
 			//fmt.Printf("Received: %#v\n", a)
+		case a := <-MasterbcastRx:
+			Masterid = a.MasterID
+			fmt.Print(Masterid)
+			fmt.Printf("Received: %#v\n", a)
+			timeout = time.After(5 * time.Second)
+		case <-timeout: // Timeout after 5 seconds
+			Masterid=id
+			fmt.Println("Timeout: No data received making myself master\n ")
 		}
 	}
 }
@@ -124,11 +139,11 @@ func MasterElection(peers []string, id string) {
 	if id == peers[0] {
 		fmt.Printf("I am master\n")
 		Masterid = id
-		fmt.Print(Masterid)
+		fmt.Print(Masterid,"\n")
 	} else {
 		fmt.Printf("I am slave\n")
 		Masterid = peers[0]
-		fmt.Print(Masterid)
+		fmt.Print(Masterid,"\n")
 	}
 
 }
