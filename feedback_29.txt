@@ -1,0 +1,6 @@
+1The code needs to be altered in several Places if one wants to add more than 3 elevators and 4 floors. Consider adding a config file where all of these variables are kept and called when used in the program. Now everything is explicitly stated With a value each time. Which could cause issues and difficulty to maintain the code.
+2Consider changing the default UDP ports used in the handout code as to avoid receiving Messages from other Groups that uses these default ports.
+3The Three functions defined below the main loop should be moved to a different file as to make Your program more readable and scalable. 
+4Dont understand the for loop at the bottom of distribution it is not inside a function and is not being run, maybe misplaced???
+5Why is there a separate main loop in the assigner.go file???
+6The code is relatively easy to follow and has a logical flow. It has its flaws but it is certainly on the right track of what we, with our Limited understanding, view as a good solution.  
