@@ -1,0 +1,10 @@
+072AF506
+8
+1. In the main.go-file the group initiates main communication channels for peer communication, it is easy to see that the process is split into the two functions main_controller() and main_elevator().
+2. We can see that this code is a work in project, and it is nice to see that you have clearly defined functions and controller states in main_controller() that clearly will be used in further iterations.
+3. The README.md file is highly appreciated.
+4. Some parts of the code was better documented than others, but reasonable variable, function and module namings made navigating the flow of the code easier.
+5. It isn't mentioned which of Network or main.go is the current working branch, as they provide three different main loops. 
+6. Remember to add some handshake functionality even with UDP. A slave node must know if the order it has sent to the network has also been recieved. Likewise, a master node must know if the "order distribution" is acknowledged.
+7. Could it be practical that all slaves keep backup-information? (This is based on the attached UML). What if two elevators are disconnected at the same time and this is the master and its backup. The last (or more if there are more than three) will probably need to know of all the current orders.
+8. How can an elevator know if it is the only elevator on the network, or that it has disconnected from the others? We tried to solve this by listening to our own echo on the network, but there is most likely other solutions.
