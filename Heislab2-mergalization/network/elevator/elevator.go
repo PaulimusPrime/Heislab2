@@ -15,7 +15,7 @@ const (
 )
 
 func (b ElevatorBehaviour) String() string {
-    return [...]string{"moving", "idle", "stopped"}[b]
+    return [...]string{ "idle", "doorOpen", "moving"}[b]
 }
 
 //Everyone waiting or only those that want to travel in that direction goes on

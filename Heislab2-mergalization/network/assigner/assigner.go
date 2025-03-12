@@ -21,7 +21,7 @@ type HRAInput struct {
 }
 
 // This function will assign a new call to the network
-func Assigner(e1 elevator.Elevator, e2 elevator.Elevator, e3 elevator.Elevator, HallRequests [][2]bool) {
+func Assigner(e1 elevator.Elevator, e2 elevator.Elevator, e3 elevator.Elevator) {
 	hraExecutable := ""
 	switch runtime.GOOS {
 	case "linux":
@@ -33,8 +33,9 @@ func Assigner(e1 elevator.Elevator, e2 elevator.Elevator, e3 elevator.Elevator, 
 	}
 
 	input := HRAInput{
-		HallRequests: HallRequests,
+		//HallRequests: HallRequests,
 		//HallRequests: [][2]bool{{false, false}, {true, false}, {false, false}, {false, true}},
+		HallRequests: [][2]bool{{false, false}, {true, false}, {false, false}, {false, true}},
 		States: map[string]HRAElevState{
 			"one": HRAElevState{
 				Behavior:    e1.Behaviour.String(),
