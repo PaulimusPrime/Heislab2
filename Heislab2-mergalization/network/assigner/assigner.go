@@ -35,7 +35,7 @@ func Assigner(e1 elevator.Elevator, e2 elevator.Elevator, e3 elevator.Elevator) 
 	input := HRAInput{
 		//HallRequests: HallRequests,
 		//HallRequests: [][2]bool{{false, false}, {true, false}, {false, false}, {false, true}},
-		HallRequests: [][2]bool{{false, false}, {true, false}, {false, false}, {false, true}},
+		HallRequests: [][2]bool{{e1.Requests[0][0]||e2.Requests[0][0]||e3.Requests[0][0], false}, {e1.Requests[1][0]||e2.Requests[1][0]||e3.Requests[1][0], e1.Requests[1][1]||e2.Requests[1][1]||e3.Requests[1][1]}, {e1.Requests[2][0]||e2.Requests[2][0]||e3.Requests[2][0], e1.Requests[2][1]||e2.Requests[2][1]||e3.Requests[2][1]}, {false, e1.Requests[3][1]||e2.Requests[3][1]||e3.Requests[3][1]}},
 		States: map[string]HRAElevState{
 			"one": HRAElevState{
 				Behavior:    e1.Behaviour.String(),
