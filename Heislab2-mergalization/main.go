@@ -163,16 +163,19 @@ func main() {
 
 	//-------------------------------------------M---------------------------------------------------
 	//Martin remotework order distribution
-	if Masterid == id {
-		go func() {
-			allOrdersBcast <- orderAll{e.Requests}
-		}()
-		go bcast.Transmitter(16570, allOrdersBcast) //Broadcaster konstant alle ordre
-	}
+	go func() {
+		for {
+			if Masterid == id {
+				allOrdersBcast <- orderAll{e.Requests}
+			}
+		}
+	}()
+
+	go bcast.Transmitter(16570, allOrdersBcast)
 	go bcast.Receiver(16570, allOrdersRecv) //Lytter på alle ordre
 
-	go bcast.Receiver(16571, OrderRx)    //Lytter på enkelt order fra individuelle heiser
-	go bcast.Transmitter(16571, OrderTx) //MARTIN FIX DENNE
+	go bcast.Receiver(16571, OrderRx) //Lytter på enkelt order fra individuelle heiser
+	go bcast.Transmitter(16571, OrderTx)
 	//-------------------------------------------M---------------------------------------------------
 
 	fmt.Println("Started")
@@ -235,7 +238,7 @@ func main() {
 			//Om du er master, putt inn ordre, ellers broadcast ordre
 			if Masterid == id {
 				e.Requests[button.Floor][button.Button] = true
-				elevio.SetButtonLamp(button.Button, button.Floor, true)
+
 			} else {
 				OrderTx <- requestMsg{button.Floor, button.Button}
 				pr.Floor = button.Floor
@@ -284,13 +287,14 @@ func main() {
 				elevio.SetButtonLamp(r.Button, r.Floor, true)
 			}
 
-		case o := <-allOrdersRecv: //o for ordre
-			if Masterid != id {
-				if !o.Orders[pr.Button][pr.Floor] {
-					OrderTx <- requestMsg(pr)
-
-				}
-			}
+		// case o := <-allOrdersRecv: //o for ordre
+		// 	if Masterid != id {
+		// 		if !o.Orders[pr.Button][pr.Floor] {
+		// 			OrderTx <- requestMsg(pr)
+		// 			print("tries again")
+		// 			//HER MÅ DET ACKes
+		// 		}
+		// 	}
 
 		case <-drv_stop:
 			fmt.Println("Order list:")
@@ -317,6 +321,13 @@ func main() {
 			}
 			fmt.Println("[-] ")
 			fmt.Println()
+
+			// for floor := 0; floor < config.NumFloors; floor++ {
+			// 	for btn := 0; btn < 3; btn++ {
+			// 		e.Requests[floor][btn] = false
+			// 		elevio.SetButtonLamp(elevio.ButtonType(btn), floor, false)
+			// 	}
+			// }
 			//-------------------------------------------M---------------------------------------------------
 		}
 	}
