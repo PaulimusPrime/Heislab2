@@ -22,6 +22,10 @@ const (
 	MD_Stop                = 0
 )
 
+func (d MotorDirection) String() string {
+    return [...]string{"up", "down", "stop"}[d]
+}
+
 type ButtonType int
 
 const (

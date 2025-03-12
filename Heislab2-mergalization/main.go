@@ -1,19 +1,20 @@
 package main
 
 import (
-	"Network-go/network/bcast"
+	// "Network-go/network/bcast"
 	"Network-go/network/config"
 	"Network-go/network/elevator"
 	"Network-go/network/elevio"
-	"Network-go/network/fsm"
-	"Network-go/network/localip"
-	"Network-go/network/master"
-	"Network-go/network/peers"
-	"Network-go/network/timer"
-	"flag"
-	"fmt"
-	"os"
-	"time"
+	// "Network-go/network/fsm"
+	// "Network-go/network/localip"
+	// "Network-go/network/master"
+	// "Network-go/network/peers"
+	// "Network-go/network/timer"
+	"Network-go/network/assigner"
+	// "flag"
+	// "fmt"
+	// "os"
+	// "time"
 )
 
 // We define some custom struct to send over the network.
@@ -56,7 +57,7 @@ type ButtonMsg struct {
 var Masterid string
 var network_connection bool
 
-func main() {
+/*func main() {
 	//From single elevator
 	var id string
 	flag.StringVar(&id, "id", "", "id of this peer")
@@ -320,4 +321,11 @@ func main() {
 			//-------------------------------------------M---------------------------------------------------
 		}
 	}
+}*/
+func main(){
+	e1 := elevator.Elevator{}
+	e2 := elevator.Elevator{}
+	e3 := elevator.Elevator{}
+	HallRequests := [][2]bool{{false, false}, {true, false}, {false, false}, {false, true}}
+	assigner.Assigner(e1,e2,e3,HallRequests);
 }

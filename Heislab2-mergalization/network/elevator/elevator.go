@@ -14,6 +14,10 @@ const (
 	EB_Moving                   = 2
 )
 
+func (b ElevatorBehaviour) String() string {
+    return [...]string{"moving", "idle", "stopped"}[b]
+}
+
 //Everyone waiting or only those that want to travel in that direction goes on
 // type ClearRequestVariant int
 // const(
