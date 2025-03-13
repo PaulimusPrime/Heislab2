@@ -4,9 +4,6 @@ import (
 	"fmt"
 )
 
-/**
-jdksjdksjak
-**/
 func MasterElection(peers []string, id string, Masterid *string) {
 	fmt.Printf("Master election started\n")
 	if id == peers[0] {
