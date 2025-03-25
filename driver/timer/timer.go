@@ -1,11 +1,6 @@
 package timer
 
 import (
-	// "fmt"
-	// "Driver-go/fsm"
-	//"Driver-go/elevio"
-	//"fmt"
-	//"Driver-go/elevio"
 	"time"
 )
 

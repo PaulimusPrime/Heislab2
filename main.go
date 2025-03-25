@@ -3,139 +3,51 @@ package main
 import (
 	"elev_project/assigner"
 	"elev_project/config"
-
 	"elev_project/driver/elevator"
 	"elev_project/driver/elevio"
 	"elev_project/driver/fsm"
 	"elev_project/driver/master"
 	"elev_project/driver/runelevator"
 	"elev_project/driver/timer"
-
-	"elev_project/network/bcast"
-	"elev_project/network/peers"
-
+	backgroundtasks "elev_project/network/backgroundTasks"
+	"elev_project/network/networkListeners"
 	"flag"
 	"fmt"
 	"time"
 )
 
-type HelloMsg struct {
-	Message string
-	Iter    int
-}
-
-type requestMsg struct {
-	Floor   int
-	Button  elevio.ButtonType
-	OrderID string
-}
-
-type ackMsg struct {
-	OrderID string
-	AckType string
-}
-
-type ObjectMsg struct {
-	Message elevator.Elevator
-	ID      string
-}
-
-var (
-	ackchan    = 16572
-	orderchan  = 16571
-	peerchan   = 64715
-	hellochan  = 61569
-	statechan  = 26573
-	assignchan = 11901
-	backupchan = 56438
-)
-
-// 16572,16571,64715,61569,26573,11901
-
-var pendingOrderRequests = make(map[string]requestMsg)
-var elevatorStates = make(map[string]elevator.Elevator)
-var backupStates = make(map[string]elevator.Elevator)
-var pendingMasterOrders = make(map[string][][2]bool)
-var Masterid string
-
 func main() {
-	//From single elevator
-	var id string
-	flag.StringVar(&id, "id", "", "id of this peer")
-	flag.Parse()
-	elevio.Init("localhost:1729"+id, config.NumFloors)
-
 	var (
-		e                 elevator.Elevator
-		prevRequestButton [config.NumFloors][config.NumButtons]bool
-		prevFloorSensor   = -1
-		obstruction       bool
-		ImLost            bool
+		//Elevator
+		e               elevator.Elevator //elevator struct
+		prevFloorSensor = -1              //previous floor sensor
+		obstruction     bool              //obstruction
+		ImLost          bool              //Tells us if we are on the network or not
+		id              string            //id of the elevator
+
+		//Network
+		pendingOrderRequests = make(map[string]networkListeners.RequestMsg)
+		elevatorStates       = make(map[string]elevator.Elevator) //map of elevator states for all alive elevators
+		backupStates         = make(map[string]elevator.Elevator) //map of elevator states for all elevators that have been or is alive
+		pendingMasterOrders  = make(map[string][][2]bool)
+		Masterid             string //Id of the current master in the network
 	)
 
 	//initializing elevator
-	fmt.Printf("Elevator starting \n")
-	elevator.InitializeElevator(&e, &prevRequestButton)
-
-	drv_buttons := make(chan elevio.ButtonEvent)
-	drv_floors := make(chan int)
-	drv_obstr := make(chan bool)
-	drv_stop := make(chan bool)
-	OrderTx := make(chan requestMsg)
-	OrderRx := make(chan requestMsg)
-	ackRx := make(chan ackMsg)
-	ackTx := make(chan ackMsg)
-	stateTx := make(chan ObjectMsg)
-	stateRx := make(chan ObjectMsg)
-	assignTx := make(chan map[string][][2]bool)
-	assignRx := make(chan map[string][][2]bool)
-	backupTx := make(chan map[string]elevator.Elevator)
-	backupRx := make(chan map[string]elevator.Elevator)
-	peerUpdateCh := make(chan peers.PeerUpdate)
-	peerTxEnable := make(chan bool)
-	helloTx := make(chan HelloMsg)
-	helloRx := make(chan HelloMsg)
-
-	go peers.Transmitter(peerchan, id, peerTxEnable)
-	go peers.Receiver(peerchan, peerUpdateCh)
-	go elevio.PollButtons(drv_buttons)
-	go elevio.PollFloorSensor(drv_floors)
-	go elevio.PollObstructionSwitch(drv_obstr)
-	go elevio.PollStopButton(drv_stop)
-	go bcast.Transmitter(hellochan, helloTx)
-	go bcast.Receiver(hellochan, helloRx)
-	go bcast.Receiver(orderchan, OrderRx)
-	go bcast.Transmitter(orderchan, OrderTx)
-	go bcast.Transmitter(ackchan, ackTx)
-	go bcast.Receiver(ackchan, ackRx)
-	go bcast.Transmitter(statechan, stateTx)
-	go bcast.Receiver(statechan, stateRx)
-	go bcast.Transmitter(assignchan, assignTx)
-	go bcast.Receiver(assignchan, assignRx)
-	go bcast.Transmitter(backupchan, backupTx)
-	go bcast.Receiver(backupchan, backupRx)
-
-	go func() {
-		helloMsg := HelloMsg{"Hello from " + id, 0}
-		for {
-			helloMsg.Iter++
-			helloTx <- helloMsg
-			time.Sleep(1 * time.Second)
-		}
-	}()
-	go func() {
-		time.Sleep(time.Second)
-		for {
-			stateTx <- ObjectMsg{Message: e, ID: id}
-			time.Sleep(50 * time.Millisecond)
-		}
-	}()
+	flag.StringVar(&id, "id", "", "id of this peer")
+	flag.Parse()
+	fmt.Printf("Elevator starting \n")           //simple print to tell us that the elevator is starting
+	elevator.InitializeElevator(&e, id)          //initializing elevator
+	ch := networkListeners.InitChannels()        // Initializing channels
+	networkListeners.StartListeners(id, ch)      // Starting listeners/transmitters
+	backgroundtasks.StartHelloSender(id, ch)     //Start sending hellos/alive messages
+	backgroundtasks.StartStateSender(id, ch, &e) //Start sending state messages
 
 	fmt.Println("Started")
 	for {
 		select {
 		// Activates upon change in peers-struct
-		case p := <-peerUpdateCh:
+		case p := <-ch.PeerUpdateCh:
 			var lostElevator string = "99" // To ensure there is no master when initializing the network
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", p.Peers)
@@ -158,7 +70,7 @@ func main() {
 			if len(p.New) > 0 {
 				ImLost = false
 				if Masterid == id {
-					backupTx <- backupStates
+					ch.BackupTx <- backupStates
 					fmt.Println("Master sending backup")
 					// for i := 0; i < config.NumFloors; i++ {
 					// 	fmt.Println(backupStates["1"].Requests[i][elevio.BT_Cab])
@@ -166,36 +78,34 @@ func main() {
 					// }
 				}
 				master.MasterElection(p.Peers, id, &Masterid)
-				assigner.Assigner(backupStates, assignTx, pendingMasterOrders)
+				assigner.Assigner(backupStates, ch.AssignTx, pendingMasterOrders)
 			}
 
 		// Activates upon local elevator button press. Adds this to "Elevator" struct "e"
-		case button := <-drv_buttons:
+		case button := <-ch.DrvButtons:
 			if button.Button == elevio.ButtonType(elevio.BT_Cab) {
 				e.Requests[button.Floor][button.Button] = true
 				fsm.Fsm_onRequestButtonPress(&e, button.Floor, button.Button)
 				elevio.SetButtonLamp(button.Button, button.Floor, true)
-
 			} else if !ImLost {
 				if Masterid == id {
 					e.Requests[button.Floor][button.Button] = true
 					elevatorStates[id] = e
 					backupStates[id] = e
 					e.Requests[button.Floor][button.Button] = true
-					assigner.Assigner(elevatorStates, assignTx, pendingMasterOrders)
+					assigner.Assigner(elevatorStates, ch.AssignTx, pendingMasterOrders)
 					runelevator.RunElev(&e, pendingMasterOrders, id)
-
 				} else {
 					e.Requests[button.Floor][button.Button] = true
-					request := requestMsg{button.Floor, button.Button, id}
-					OrderTx <- request
+					request := networkListeners.RequestMsg{button.Floor, button.Button, id}
+					ch.OrderTx <- request
 					pendingOrderRequests[request.OrderID] = request
 					fmt.Println("Added order to pendingOrders from:", request.OrderID)
 				}
 			}
 
 		// Activates upon local elevator floor arrival. Updates "Elevator" struct "e".
-		case floor := <-drv_floors:
+		case floor := <-ch.DrvFloors:
 			if floor != -1 && floor != prevFloorSensor {
 				fsm.Fsm_onFloorArrival(&e, floor)
 			} else {
@@ -212,49 +122,45 @@ func main() {
 				timer.StartTimer(config.ObstructionDurationS)
 			}
 		// Obstruction activated.
-		case <-drv_obstr:
+		case <-ch.DrvObstr:
 			obstruction = !obstruction
 
 		// Stop button pressed.
-		case stop := <-drv_stop:
+		case stop := <-ch.DrvStop:
 			if stop {
 				elevio.SetMotorDirection(elevio.MD_Stop)
 				e.Behaviour = elevator.EB_Idle
 			}
 			time.Sleep(time.Duration(config.InputPollRate))
 
-		case r := <-OrderRx: //r for request
+		case r := <-ch.OrderRx: //r for request
 			if Masterid == id {
-				ack := ackMsg{OrderID: r.OrderID, AckType: "order"}
-				ackTx <- ack
+				ack := networkListeners.AckMsg{OrderID: r.OrderID, AckType: "order"}
+				ch.AckTx <- ack
 				fmt.Println("Sent ACK from :", ack.OrderID)
-
 				updateDeadline := time.Now().Add(200 * time.Millisecond)
 				for time.Now().Before(updateDeadline) {
 					select {
-					case state := <-stateRx:
+					case state := <-ch.StateRx:
 						backupStates[state.ID] = state.Message
 						elevatorStates[state.ID] = state.Message
 						for i := 0; i < config.NumFloors; i++ {
 							fmt.Println(backupStates["1"].Requests[i][elevio.BT_Cab])
 							fmt.Println(backupStates["2"].Requests[i][elevio.BT_Cab])
 						}
-
 					default:
 						time.Sleep(50 * time.Millisecond)
 					}
 				}
-
-				assigner.Assigner(elevatorStates, assignTx, pendingMasterOrders)
-
+				assigner.Assigner(elevatorStates, ch.AssignTx, pendingMasterOrders)
 			}
 
-		case state := <-stateRx:
+		case state := <-ch.StateRx:
 			backupStates[state.ID] = state.Message
 			elevatorStates[state.ID] = state.Message
 			fsm.SetHallLights(elevatorStates)
 
-		case ack := <-ackRx:
+		case ack := <-ch.AckRx:
 			if ack.AckType == "order" {
 				fmt.Println("Received ACK from:", ack.OrderID)
 				delete(pendingOrderRequests, ack.OrderID) // Remove acknowledged order from pendingOrderRequests
@@ -267,21 +173,19 @@ func main() {
 
 		case <-time.After(200 * time.Millisecond):
 			for _, request := range pendingOrderRequests {
-				OrderTx <- request
+				ch.OrderTx <- request
 			}
 			for id, orders := range pendingMasterOrders {
-				assignTx <- map[string][][2]bool{id: orders}
+				ch.AssignTx <- map[string][][2]bool{id: orders}
 				fmt.Printf("Id: %s not acknowledged. Resending orders\n", id)
 			}
 
-		case AssRec := <-assignRx:
-
-			ack := ackMsg{OrderID: id, AckType: "assign"}
-			ackTx <- ack
-
+		case AssRec := <-ch.AssignRx:
+			ack := networkListeners.AckMsg{OrderID: id, AckType: "assign"}
+			ch.AckTx <- ack
 			runelevator.RunElev(&e, AssRec, id)
 
-		case backup := <-backupRx:
+		case backup := <-ch.BackupRx:
 			fmt.Println("Backed up")
 			e.Requests = backup[id].Requests
 
@@ -289,7 +193,6 @@ func main() {
 				if e.Requests[i][elevio.BT_Cab] {
 					fsm.Fsm_onRequestButtonPress(&e, i, elevio.BT_Cab)
 				}
-
 			}
 		}
 	}

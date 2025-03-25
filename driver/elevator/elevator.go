@@ -19,13 +19,6 @@ func (b ElevatorBehaviour) String() string {
 	return [...]string{"idle", "doorOpen", "moving"}[b]
 }
 
-//Everyone waiting or only those that want to travel in that direction goes on
-// type ClearRequestVariant int
-// const(
-// 	CV_all ClearRequestVariant = iota
-// 	CV_InDirn
-// )
-
 type Elevator struct {
 	Floor     int
 	Dirn      elevio.MotorDirection
@@ -33,20 +26,20 @@ type Elevator struct {
 	Behaviour ElevatorBehaviour
 }
 
-func InitializeElevator(e *Elevator, prevRequestButton *[config.NumFloors][config.NumButtons]bool) {
+func InitializeElevator(e *Elevator, id string) {
+	elevio.Init("localhost:1729"+id, config.NumFloors)
 	e.Behaviour = EB_Idle
 	e.Floor = elevio.GetFloor()
 	e.Dirn = elevio.MD_Stop
 	for f := 0; f < config.NumFloors; f++ {
 		for b := 0; b < config.NumButtons; b++ {
 			e.Requests[f][b] = false
-			prevRequestButton[f][b] = false
 			elevio.SetButtonLamp(elevio.ButtonType(b), f, false)
 			elevio.SetDoorOpenLamp(false)
 		}
 
 	}
-	//For loop to always start in first floor
+	//For loop to always start in a defined state
 	for {
 		e.Floor = elevio.GetFloor()
 		if e.Floor == -1 {
