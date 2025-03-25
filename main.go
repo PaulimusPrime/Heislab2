@@ -16,23 +16,12 @@ import (
 
 	"flag"
 	"fmt"
-
-	//"os"
 	"time"
 )
 
-// We define some custom struct to send over the network.
-// Note that all members we want to transmit must be public. Any private members
-//
-//	will be received as zero-values.
 type HelloMsg struct {
 	Message string
 	Iter    int
-}
-
-type MasterMsg struct {
-	Message  string
-	MasterID string
 }
 
 type requestMsg struct {
@@ -56,20 +45,18 @@ var (
 	orderchan  = 16571
 	peerchan   = 64715
 	hellochan  = 61569
-	masterchan = 21708
 	statechan  = 26573
 	assignchan = 11901
 	backupchan = 56438
 )
 
-// 16572,16571,64715,61569,21708,26573,11901
+// 16572,16571,64715,61569,26573,11901
 
 var pendingOrderRequests = make(map[string]requestMsg)
 var elevatorStates = make(map[string]elevator.Elevator)
 var backupStates = make(map[string]elevator.Elevator)
 var pendingMasterOrders = make(map[string][][2]bool)
 var Masterid string
-var network_connection bool
 
 func main() {
 	//From single elevator
@@ -94,12 +81,6 @@ func main() {
 	drv_floors := make(chan int)
 	drv_obstr := make(chan bool)
 	drv_stop := make(chan bool)
-
-	go elevio.PollButtons(drv_buttons)
-	go elevio.PollFloorSensor(drv_floors)
-	go elevio.PollObstructionSwitch(drv_obstr)
-	go elevio.PollStopButton(drv_stop)
-
 	OrderTx := make(chan requestMsg)
 	OrderRx := make(chan requestMsg)
 	ackRx := make(chan ackMsg)
@@ -110,41 +91,19 @@ func main() {
 	assignRx := make(chan map[string][][2]bool)
 	backupTx := make(chan map[string]elevator.Elevator)
 	backupRx := make(chan map[string]elevator.Elevator)
-
-	//From network
-
-	// Our id can be anything. Here we pass it on the command line, using
-	//  go run main.go -id=our_id
-
-	// ... or alternatively, we can use the local IP address.
-	// (But since we can run multiple programs on the same PC, we also append the
-	//  process ID)
-
 	peerUpdateCh := make(chan peers.PeerUpdate)
 	peerTxEnable := make(chan bool)
-
-	go peers.Transmitter(peerchan, id, peerTxEnable)
-	go peers.Receiver(peerchan, peerUpdateCh)
-
 	helloTx := make(chan HelloMsg)
 	helloRx := make(chan HelloMsg)
 
+	go peers.Transmitter(peerchan, id, peerTxEnable)
+	go peers.Receiver(peerchan, peerUpdateCh)
+	go elevio.PollButtons(drv_buttons)
+	go elevio.PollFloorSensor(drv_floors)
+	go elevio.PollObstructionSwitch(drv_obstr)
+	go elevio.PollStopButton(drv_stop)
 	go bcast.Transmitter(hellochan, helloTx)
 	go bcast.Receiver(hellochan, helloRx)
-
-	MasterbcastTx := make(chan MasterMsg)
-	MasterbcastRx := make(chan MasterMsg)
-	go bcast.Receiver(masterchan, MasterbcastRx)
-
-	go func() {
-		helloMsg := HelloMsg{"Hello from " + id, 0}
-		for {
-			helloMsg.Iter++
-			helloTx <- helloMsg
-			time.Sleep(1 * time.Second)
-		}
-	}()
-
 	go bcast.Receiver(orderchan, OrderRx)
 	go bcast.Transmitter(orderchan, OrderTx)
 	go bcast.Transmitter(ackchan, ackTx)
@@ -157,6 +116,14 @@ func main() {
 	go bcast.Receiver(backupchan, backupRx)
 
 	go func() {
+		helloMsg := HelloMsg{"Hello from " + id, 0}
+		for {
+			helloMsg.Iter++
+			helloTx <- helloMsg
+			time.Sleep(1 * time.Second)
+		}
+	}()
+	go func() {
 		time.Sleep(time.Second)
 		for {
 			stateTx <- ObjectMsg{Message: e, ID: id}
@@ -165,23 +132,7 @@ func main() {
 	}()
 
 	fmt.Println("Started")
-	//timeout := time.After(5 * time.Second)
 	for {
-		// If local elevator is dedicated master, starts broadcasting heartbeat. Network connection is not what it seems
-		if Masterid == id && Masterid != "" && !network_connection {
-			go bcast.Transmitter(masterchan, MasterbcastTx)
-			network_connection = true
-			go func() {
-				MasterMsg := MasterMsg{"I am the master", Masterid}
-				for {
-					MasterbcastTx <- MasterMsg
-					time.Sleep(1 * time.Second)
-					if !network_connection {
-						break
-					}
-				}
-			}()
-		}
 		select {
 		// Activates upon change in peers-struct
 		case p := <-peerUpdateCh:
@@ -217,20 +168,6 @@ func main() {
 				master.MasterElection(p.Peers, id, &Masterid)
 				assigner.Assigner(backupStates, assignTx, pendingMasterOrders)
 			}
-		// Activates upon recieved heartbeat from master
-		case a := <-MasterbcastRx:
-			Masterid = a.MasterID
-			//fmt.Printf("Received: %#v\n", a) //DENNE ER TATT UT
-			//timeout = time.After(2 * time.Second)
-
-		// Activates if not recieved master heartbeat
-		// case <-timeout: // Timeout after 5 seconds
-		// 	if Masterid == id {
-		// 		//Ute av nettverket
-		// 		network_connection = false
-		// 	}
-		// 	Masterid = id
-		// 	fmt.Println("Timeout: No data received making myself master\n ")
 
 		// Activates upon local elevator button press. Adds this to "Elevator" struct "e"
 		case button := <-drv_buttons:
