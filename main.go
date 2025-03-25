@@ -1,16 +1,24 @@
 package main
 
 import (
+	// Imports from assigner
 	"elev_project/assigner"
+	// Imports from config
 	"elev_project/config"
+	// Imports from driver
 	"elev_project/driver/elevator"
 	"elev_project/driver/elevio"
 	"elev_project/driver/fsm"
-	"elev_project/driver/master"
+
+	//"elev_project/driver/master"
 	"elev_project/driver/runelevator"
 	"elev_project/driver/timer"
+
+	// Imports from network
 	backgroundtasks "elev_project/network/backgroundTasks"
 	"elev_project/network/networkListeners"
+
+	// Library imports
 	"flag"
 	"fmt"
 	"time"
@@ -30,7 +38,7 @@ func main() {
 		elevatorStates       = make(map[string]elevator.Elevator) //map of elevator states for all alive elevators
 		backupStates         = make(map[string]elevator.Elevator) //map of elevator states for all elevators that have been or is alive
 		pendingMasterOrders  = make(map[string][][2]bool)
-		Masterid             string //Id of the current master in the network
+		Masterid             string // Local understanding of the current master in the network
 	)
 
 	//initializing elevator
@@ -44,10 +52,13 @@ func main() {
 	backgroundtasks.StartStateSender(id, ch, &e) //Start sending state messages
 
 	fmt.Println("Started")
+
 	for {
 		select {
 		// Activates upon change in peers-struct
 		case p := <-ch.PeerUpdateCh:
+			backgroundtasks.PeersUpdate(ch, id, &Masterid, &ImLost, pendingMasterOrders, elevatorStates, backupStates, p)
+		/*
 			var lostElevator string = "99" // To ensure there is no master when initializing the network
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", p.Peers)
@@ -79,7 +90,7 @@ func main() {
 				}
 				master.MasterElection(p.Peers, id, &Masterid)
 				assigner.Assigner(backupStates, ch.AssignTx, pendingMasterOrders)
-			}
+			}*/
 
 		// Activates upon local elevator button press. Adds this to "Elevator" struct "e"
 		case button := <-ch.DrvButtons:
