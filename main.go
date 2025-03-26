@@ -30,11 +30,12 @@ import (
 func main() {
 	var (
 		//Elevator
-		e           elevator.Elevator //elevator struct
-		obstruction bool              //obstruction
-		ImLost      bool              //Tells us if we are on the network or not
-		id          string            //id of the elevator
-		Motorstop   bool              = false
+		e               elevator.Elevator //elevator struct
+		obstruction     bool              //obstruction
+		ImLost          bool              //Tells us if we are on the network or not
+		id              string            //id of the elevator
+		Motorstop       bool              = false
+		prevFloorSensor                   = -1
 
 		//Network
 		pendingOrderRequests        = make(map[string]networkListeners.RequestMsg)
@@ -42,7 +43,7 @@ func main() {
 		backupStates                = make(map[string]elevator.Elevator) //map of elevator states for all elevators that have been or is alive
 		pendingMasterOrders         = make(map[string][][2]bool)
 		Masterid             string // Local understanding of the current master in the network
-		timeout              = time.After(5 * time.Second)
+		timeout              = time.After(7 * time.Second)
 	)
 
 	//initializing elevator
@@ -113,7 +114,7 @@ func main() {
 		// Activates upon local elevator button press. Adds this to "Elevator" struct "e"
 		case button := <-ch.DrvButtons:
 			// cases.HandleButtonPress(ch, id, &Masterid, &ImLost, pendingMasterOrders, elevatorStates, backupStates, pendingOrderRequests, &e, button)
-			timeout = time.After(10 * time.Second)
+			timeout = time.After(7 * time.Second)
 			if button.Button == elevio.ButtonType(elevio.BT_Cab) {
 				e.Requests[button.Floor][button.Button] = true
 				fsm.Fsm_onRequestButtonPress(&e, button.Floor, button.Button)
@@ -136,9 +137,14 @@ func main() {
 			}
 		// Activates upon local elevator floor arrival. Updates "Elevator" struct "e".
 		case floor := <-ch.DrvFloors:
-			fsm.Fsm_onFloorArrival(&e, floor)
+
+			if floor != -1 && floor != prevFloorSensor {
+				fsm.Fsm_onFloorArrival(&e, floor)
+			} else {
+				prevFloorSensor = floor
+			}
 			// cases.HandleFloorArrival(&e, &floor, &prevFloorSensor)
-			timeout = time.After(10 * time.Second)
+			timeout = time.After(7 * time.Second)
 			Motorstop = false
 			ch.PeerTxEnable <- true
 
@@ -174,10 +180,6 @@ func main() {
 					case state := <-ch.StateRx:
 						backupStates[state.ID] = state.Message
 						elevatorStates[state.ID] = state.Message
-						for i := 0; i < config.NumFloors; i++ {
-							fmt.Println(backupStates["1"].Requests[i][elevio.BT_Cab])
-							fmt.Println(backupStates["2"].Requests[i][elevio.BT_Cab])
-						}
 					default:
 						time.Sleep(50 * time.Millisecond)
 					}
@@ -213,6 +215,7 @@ func main() {
 		case AssRec := <-ch.AssignRx:
 			ack := networkListeners.AckMsg{OrderID: id, AckType: "assign"}
 			ch.AckTx <- ack
+			timeout = time.After(7 * time.Second)
 			runelevator.RunElev(&e, AssRec, id)
 
 		case backup := <-ch.BackupRx:
@@ -225,17 +228,18 @@ func main() {
 			}
 
 		case <-timeout:
-			if e.Behaviour == elevator.EB_Moving && !obstruction {
+			if e.Behaviour == elevator.EB_Moving {
 				ch.PeerTxEnable <- false
 				Motorstop = true
 				time.Sleep(1000 * time.Millisecond)
 				fmt.Println("MOTORSTOP")
-				for i := 0; i < config.NumFloors; i++ {
-					e.Requests[i][elevio.BT_HallUp] = false
-					e.Requests[i][elevio.BT_HallDown] = false
-				}
+				// for i := 0; i < config.NumFloors; i++ {
+				// 	e.Requests[i][elevio.BT_HallUp] = false
+				// 	e.Requests[i][elevio.BT_HallDown] = false
+				// }
 			} else {
-				timeout = time.After(10 * time.Second)
+				timeout = time.After(7 * time.Second)
+				fmt.Println("Timer Restarted")
 			}
 		}
 	}

@@ -21,7 +21,7 @@ func RunElev(e *elevator.Elevator, assignments map[string][][2]bool, id string) 
 	for i := 0; i < config.NumFloors; i++ {
 		for j := 0; j < 2; j++ {
 			if e.Requests[i][elevio.ButtonType(j)] {
-				fmt.Println("Excecute order: %d", i)
+				fmt.Printf("Excecute order: %d\n", i)
 				fsm.Fsm_onRequestButtonPress(e, i, elevio.ButtonType(j))
 			}
 		}
