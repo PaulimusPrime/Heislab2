@@ -9,7 +9,6 @@ import (
 )
 
 func RunElev(e *elevator.Elevator, assignments map[string][][2]bool, id string) {
-	fmt.Println("Assigning")
 	if assignedOrders, exists := assignments[id]; exists {
 		for i := 0; i < config.NumFloors; i++ {
 			e.Requests[i][elevio.BT_HallUp] = assignedOrders[i][0]

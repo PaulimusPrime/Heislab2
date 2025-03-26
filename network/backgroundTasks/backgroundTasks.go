@@ -6,22 +6,24 @@ import (
 	"time"
 )
 
-func StartHelloSender(id string, ch *networkListeners.Channels) {
-	helloMsg := networkListeners.HelloMsg{"Hello from " + id, 0}
-	go func() {
-		for {
-			helloMsg.Iter++
-			ch.HelloTx <- networkListeners.HelloMsg{}
-			time.Sleep(1 * time.Second)
-		}
-	}()
-}
+// func StartHelloSender(id string, ch *networkListeners.Channels) {
+// 	helloMsg := networkListeners.HelloMsg{"Hello from " + id, 0}
+// 	go func() {
+// 		for {
+// 			helloMsg.Iter++
+// 			ch.HelloTx <- networkListeners.HelloMsg{}
+// 			time.Sleep(1 * time.Second)
+// 		}
+// 	}()
+// }
 
-func StartStateSender(id string, ch *networkListeners.Channels, e *elevator.Elevator) {
+func StartStateSender(id string, ch *networkListeners.Channels, e *elevator.Elevator, Motorstop *bool) {
 	go func() {
 		time.Sleep(time.Second)
 		for {
-			ch.StateTx <- networkListeners.ObjectMsg{Message: *e, ID: id}
+			if !*Motorstop {
+				ch.StateTx <- networkListeners.ObjectMsg{Message: *e, ID: id}
+			}
 			time.Sleep(50 * time.Millisecond)
 		}
 	}()
