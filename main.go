@@ -15,13 +15,11 @@ import (
 	"elev_project/driver/elevio"
 	"elev_project/driver/fsm"
 	"elev_project/driver/runelevator"
-	"elev_project/driver/timer"
 	"time"
 
 	//"elev_project/driver/master"
 
 	// Imports from network
-	backgroundtasks "elev_project/network/backgroundTasks"
 	"elev_project/network/networkListeners"
 
 	// Library imports
@@ -32,12 +30,10 @@ import (
 func main() {
 	var (
 		//Elevator
-		e               elevator.Elevator //elevator struct
-		obstruction     bool              //obstruction
-		ImLost          bool              //Tells us if we are on the network or not
-		id              string            //id of the elevator
-		Motorstop       bool              = false
-		prevFloorSensor                   = -1
+		e         elevator.Elevator //elevator struct
+		ImLost    bool              //Tells us if we are on the network or not
+		id        string            //id of the elevator
+		Motorstop bool              = false
 
 		//Network
 		pendingOrderRequests        = make(map[string]networkListeners.RequestMsg)
@@ -56,11 +52,11 @@ func main() {
 	ch := networkListeners.InitChannels()   // Initializing channels
 	networkListeners.StartListeners(id, ch) // Starting listeners/transmitters
 	//backgroundtasks.StartHelloSender(id, ch)     //Start sending hellos/alive messages
-	backgroundtasks.StartStateSender(id, ch, &e, &Motorstop) //Start sending state messages
+	networkListeners.StartStateSender(id, ch, &e, &Motorstop) //Start sending state messages
 
 	fmt.Println("Started")
 	go cases.PeersUpdate(ch, id, &Masterid, &ImLost, pendingMasterOrders, elevatorStates, backupStates, <-ch.PeerUpdateCh, &e)
-	go cases.HandleButtonPress(ch, id, &Masterid, &ImLost, pendingMasterOrders, elevatorStates, backupStates, pendingOrderRequests, &e)
+	go cases.HandleButtonPress(ch, id, &Masterid, &ImLost, pendingMasterOrders, elevatorStates, backupStates, pendingOrderRequests, &e, &Motorstop, timeout)
 	for {
 		select {
 		// Activates upon change in peers-struct
@@ -140,40 +136,42 @@ func main() {
 				}
 			}
 		*/
-		// Activates upon local elevator floor arrival. Updates "Elevator" struct "e".
-		case floor := <-ch.DrvFloors:
 
-			if floor != -1 && floor != prevFloorSensor {
-				fsm.Fsm_onFloorArrival(&e, floor)
-			} else {
-				prevFloorSensor = floor
-			}
-			// cases.HandleFloorArrival(&e, &floor, &prevFloorSensor)
-			timeout = time.After(7 * time.Second)
-			Motorstop = false
-			ch.PeerTxEnable <- true
+		/*
+			// Activates upon local elevator floor arrival. Updates "Elevator" struct "e".
+			case floor := <-ch.DrvFloors:
 
-		// Starts door timer if not obstructed
-		case <-timer.TimerChannel:
-			if !obstruction {
-				fsm.Fsm_onDoorTimeout(&e)
-				obstruction = false
-			} else {
-				elevio.SetDoorOpenLamp(true)
-				timer.StartTimer(config.ObstructionDurationS)
-			}
-		// Obstruction activated.
-		case <-ch.DrvObstr:
-			obstruction = !obstruction
+				if floor != -1 && floor != prevFloorSensor {
+					fsm.Fsm_onFloorArrival(&e, floor)
+				} else {
+					prevFloorSensor = floor
+				}
+				// cases.HandleFloorArrival(&e, &floor, &prevFloorSensor)
+				timeout = time.After(7 * time.Second)
+				Motorstop = false
+				ch.PeerTxEnable <- true
 
-		// Stop button pressed.
-		case stop := <-ch.DrvStop:
-			if stop {
-				elevio.SetMotorDirection(elevio.MD_Stop)
-				e.Behaviour = elevator.EB_Idle
-			}
-			time.Sleep(time.Duration(config.InputPollRate))
+			// Starts door timer if not obstructed
+			case <-timer.TimerChannel:
+				if !obstruction {
+					fsm.Fsm_onDoorTimeout(&e)
+					obstruction = false
+				} else {
+					elevio.SetDoorOpenLamp(true)
+					timer.StartTimer(config.ObstructionDurationS)
+				}
+			// Obstruction activated.
+			case <-ch.DrvObstr:
+				obstruction = !obstruction
 
+			// Stop button pressed.
+			case stop := <-ch.DrvStop:
+				if stop {
+					elevio.SetMotorDirection(elevio.MD_Stop)
+					e.Behaviour = elevator.EB_Idle
+				}
+				time.Sleep(time.Duration(config.InputPollRate))
+		*/
 		case r := <-ch.OrderRx: //r for request
 			if Masterid == id {
 				ack := networkListeners.AckMsg{OrderID: r.OrderID, AckType: "order"}

@@ -1,12 +1,14 @@
 package networkListeners
 
 import (
+	"elev_project/config"
+	"elev_project/driver/elevator"
 	"elev_project/driver/elevio"
 	"elev_project/network/bcast"
 	"elev_project/network/peers"
-	"elev_project/config"
-	"elev_project/driver/elevator"
+	"time"
 )
+
 type HelloMsg struct {
 	Message string
 	Iter    int
@@ -29,46 +31,46 @@ type ObjectMsg struct {
 }
 
 type Channels struct {
-	DrvButtons    chan elevio.ButtonEvent
-	DrvFloors     chan int
-	DrvObstr      chan bool
-	DrvStop       chan bool
-	OrderTx       chan RequestMsg
-	OrderRx       chan RequestMsg
-	AckTx         chan AckMsg
-	AckRx         chan AckMsg
-	StateTx       chan ObjectMsg
-	StateRx       chan ObjectMsg
-	AssignTx      chan map[string][][2]bool
-	AssignRx      chan map[string][][2]bool
-	BackupTx      chan map[string]elevator.Elevator
-	BackupRx      chan map[string]elevator.Elevator
-	PeerUpdateCh  chan peers.PeerUpdate
-	PeerTxEnable  chan bool
-	HelloTx       chan HelloMsg
-	HelloRx       chan HelloMsg
+	DrvButtons   chan elevio.ButtonEvent
+	DrvFloors    chan int
+	DrvObstr     chan bool
+	DrvStop      chan bool
+	OrderTx      chan RequestMsg
+	OrderRx      chan RequestMsg
+	AckTx        chan AckMsg
+	AckRx        chan AckMsg
+	StateTx      chan ObjectMsg
+	StateRx      chan ObjectMsg
+	AssignTx     chan map[string][][2]bool
+	AssignRx     chan map[string][][2]bool
+	BackupTx     chan map[string]elevator.Elevator
+	BackupRx     chan map[string]elevator.Elevator
+	PeerUpdateCh chan peers.PeerUpdate
+	PeerTxEnable chan bool
+	HelloTx      chan HelloMsg
+	HelloRx      chan HelloMsg
 }
 
 func InitChannels() *Channels {
 	return &Channels{
-		DrvButtons:    make(chan elevio.ButtonEvent),
-		DrvFloors:     make(chan int),
-		DrvObstr:      make(chan bool),
-		DrvStop:       make(chan bool),
-		OrderTx:       make(chan RequestMsg),
-		OrderRx:       make(chan RequestMsg),
-		AckTx:         make(chan AckMsg),
-		AckRx:         make(chan AckMsg),
-		StateTx:       make(chan ObjectMsg),
-		StateRx:       make(chan ObjectMsg),
-		AssignTx:      make(chan map[string][][2]bool),
-		AssignRx:      make(chan map[string][][2]bool),
-		BackupTx:      make(chan map[string]elevator.Elevator),
-		BackupRx:      make(chan map[string]elevator.Elevator),
-		PeerUpdateCh:  make(chan peers.PeerUpdate),
-		PeerTxEnable:  make(chan bool),
-		HelloTx:       make(chan HelloMsg),
-		HelloRx:       make(chan HelloMsg),
+		DrvButtons:   make(chan elevio.ButtonEvent),
+		DrvFloors:    make(chan int),
+		DrvObstr:     make(chan bool),
+		DrvStop:      make(chan bool),
+		OrderTx:      make(chan RequestMsg),
+		OrderRx:      make(chan RequestMsg),
+		AckTx:        make(chan AckMsg),
+		AckRx:        make(chan AckMsg),
+		StateTx:      make(chan ObjectMsg),
+		StateRx:      make(chan ObjectMsg),
+		AssignTx:     make(chan map[string][][2]bool),
+		AssignRx:     make(chan map[string][][2]bool),
+		BackupTx:     make(chan map[string]elevator.Elevator),
+		BackupRx:     make(chan map[string]elevator.Elevator),
+		PeerUpdateCh: make(chan peers.PeerUpdate),
+		PeerTxEnable: make(chan bool),
+		HelloTx:      make(chan HelloMsg),
+		HelloRx:      make(chan HelloMsg),
 	}
 }
 
@@ -91,4 +93,17 @@ func StartListeners(id string, ch *Channels) {
 	go bcast.Receiver(config.Assignchan, ch.AssignRx)
 	go bcast.Transmitter(config.Backupchan, ch.BackupTx)
 	go bcast.Receiver(config.Backupchan, ch.BackupRx)
+}
+
+func StartStateSender(id string, ch *Channels, e *elevator.Elevator, Motorstop *bool) {
+	go func() {
+		time.Sleep(time.Second)
+		for {
+			if !*Motorstop {
+				ch.StateTx <- ObjectMsg{Message: *e, ID: id}
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}()
+
 }

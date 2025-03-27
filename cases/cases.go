@@ -8,9 +8,11 @@ import (
 	"elev_project/driver/fsm"
 	"elev_project/driver/master"
 	"elev_project/driver/runelevator"
+	"elev_project/driver/timer"
 	"elev_project/network/networkListeners"
 	"elev_project/network/peers"
 	"fmt"
+	"time"
 )
 
 // ------ Replacing switch in main with goroutines
@@ -86,7 +88,12 @@ func HandleButtonPress(
 	backupStates map[string]elevator.Elevator,
 	pendingOrderRequests map[string]networkListeners.RequestMsg,
 	e *elevator.Elevator,
+	Motorstop *bool,
+	timeout <-chan time.Time,
 ) {
+	var obstruction = false
+	var prevFloorSensor = -1
+
 	for {
 		select {
 		case button := <-ch.DrvButtons:
@@ -110,6 +117,38 @@ func HandleButtonPress(
 					fmt.Println("Added order to pendingOrders from:", request.OrderID)
 				}
 			}
+		case floor := <-ch.DrvFloors:
+
+			if floor != -1 && floor != prevFloorSensor {
+				fsm.Fsm_onFloorArrival(e, floor)
+			} else {
+				prevFloorSensor = floor
+			}
+			// cases.HandleFloorArrival(&e, &floor, &prevFloorSensor)
+			timeout = time.After(7 * time.Second)
+			*Motorstop = false
+			ch.PeerTxEnable <- true
+
+		// Starts door timer if not obstructed
+		case <-timer.TimerChannel:
+			if !obstruction {
+				fsm.Fsm_onDoorTimeout(e)
+				obstruction = false
+			} else {
+				elevio.SetDoorOpenLamp(true)
+				timer.StartTimer(config.ObstructionDurationS)
+			}
+		// Obstruction activated.
+		case <-ch.DrvObstr:
+			obstruction = !obstruction
+
+		// Stop button pressed.
+		case stop := <-ch.DrvStop:
+			if stop {
+				elevio.SetMotorDirection(elevio.MD_Stop)
+				e.Behaviour = elevator.EB_Idle
+			}
+			time.Sleep(time.Duration(config.InputPollRate))
 		}
 	}
 }
