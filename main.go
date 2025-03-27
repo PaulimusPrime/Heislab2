@@ -59,7 +59,7 @@ func main() {
 	backgroundtasks.StartStateSender(id, ch, &e, &Motorstop) //Start sending state messages
 
 	fmt.Println("Started")
-	go cases.PeersUpdate(ch, id, &Masterid, &ImLost, pendingMasterOrders, elevatorStates, backupStates, <-ch.PeerUpdateCh)
+	go cases.PeersUpdate(ch, id, &Masterid, &ImLost, pendingMasterOrders, elevatorStates, backupStates, <-ch.PeerUpdateCh, &e)
 	go cases.HandleButtonPress(ch, id, &Masterid, &ImLost, pendingMasterOrders, elevatorStates, backupStates, pendingOrderRequests, &e)
 	for {
 		select {
