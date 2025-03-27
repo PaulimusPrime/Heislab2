@@ -6,10 +6,9 @@ import (
 	"elev_project/driver/elevator"
 	"elev_project/driver/elevio"
 	"elev_project/driver/fsm"
-	"elev_project/driver/master"
 	"elev_project/driver/runelevator"
 	"elev_project/driver/timer"
-	"elev_project/network/networkListeners"
+	"elev_project/network"
 	"elev_project/network/peers"
 	"fmt"
 	"time"
@@ -18,7 +17,7 @@ import (
 // ------ Replacing switch in main with goroutines
 
 func PeersUpdate(
-	ch *networkListeners.Channels,
+	ch *network.Channels,
 	id string,
 	Masterid *string,
 	ImLost *bool,
@@ -41,7 +40,7 @@ func PeersUpdate(
 				lostElevator = p.Lost[0]
 			}
 			if lostElevator == *Masterid && len(p.Peers) > 0 {
-				master.MasterElection(p.Peers, id, Masterid)
+				network.MasterElection(p.Peers, id, Masterid)
 			}
 			for _, lostID := range p.Lost {
 				if lostID == id {
@@ -71,7 +70,7 @@ func PeersUpdate(
 					ch.BackupTx <- backupStates
 					fmt.Println("Master sending backup")
 				}
-				master.MasterElection(p.Peers, id, Masterid)
+				network.MasterElection(p.Peers, id, Masterid)
 				assigner.Assigner(backupStates, ch.AssignTx, pendingMasterOrders)
 			}
 		}
@@ -79,14 +78,14 @@ func PeersUpdate(
 }
 
 func HandleButtonPress(
-	ch *networkListeners.Channels,
+	ch *network.Channels,
 	id string,
 	Masterid *string,
 	ImLost *bool,
 	pendingMasterOrders map[string][][2]bool,
 	elevatorStates map[string]elevator.Elevator,
 	backupStates map[string]elevator.Elevator,
-	pendingOrderRequests map[string]networkListeners.RequestMsg,
+	pendingOrderRequests map[string]network.RequestMsg,
 	e *elevator.Elevator,
 	Motorstop *bool,
 	timeout <-chan time.Time,
@@ -111,7 +110,7 @@ func HandleButtonPress(
 					runelevator.RunElev(e, pendingMasterOrders, id)
 				} else {
 					e.Requests[button.Floor][button.Button] = true
-					request := networkListeners.RequestMsg{button.Floor, button.Button, id}
+					request := network.RequestMsg{button.Floor, button.Button, id}
 					ch.OrderTx <- request
 					pendingOrderRequests[request.OrderID] = request
 					fmt.Println("Added order to pendingOrders from:", request.OrderID)
@@ -135,8 +134,10 @@ func HandleButtonPress(
 			if !obstruction {
 				fsm.Fsm_onDoorTimeout(e)
 				obstruction = false
+				ch.PeerTxEnable <- true
 			} else {
 				elevio.SetDoorOpenLamp(true)
+				ch.PeerTxEnable <- false
 				timer.StartTimer(config.ObstructionDurationS)
 			}
 		// Obstruction activated.
@@ -155,13 +156,13 @@ func HandleButtonPress(
 }
 
 func HandleAssignments(
-	ch *networkListeners.Channels,
+	ch *network.Channels,
 	id string,
 	Masterid *string,
 	pendingMasterOrders map[string][][2]bool,
 	elevatorStates map[string]elevator.Elevator,
 	backupStates map[string]elevator.Elevator,
-	pendingOrderRequests map[string]networkListeners.RequestMsg,
+	pendingOrderRequests map[string]network.RequestMsg,
 	e *elevator.Elevator,
 	Motorstop *bool,
 	timeout <-chan time.Time,
@@ -170,7 +171,7 @@ func HandleAssignments(
 		select {
 		case r := <-ch.OrderRx: //r for request
 			if *Masterid == id {
-				ack := networkListeners.AckMsg{OrderID: r.OrderID, AckType: "order"}
+				ack := network.AckMsg{OrderID: r.OrderID, AckType: "order"}
 				ch.AckTx <- ack
 				fmt.Println("Sent ACK from :", ack.OrderID)
 				updateDeadline := time.Now().Add(200 * time.Millisecond)
@@ -212,7 +213,7 @@ func HandleAssignments(
 			}
 
 		case AssRec := <-ch.AssignRx:
-			ack := networkListeners.AckMsg{OrderID: id, AckType: "assign"}
+			ack := network.AckMsg{OrderID: id, AckType: "assign"}
 			ch.AckTx <- ack
 			timeout = time.After(7 * time.Second)
 			runelevator.RunElev(e, AssRec, id)

@@ -1,4 +1,4 @@
-package networkListeners
+package network
 
 import (
 	"elev_project/config"
