@@ -60,6 +60,7 @@ func main() {
 
 	fmt.Println("Started")
 	go cases.PeersUpdate(ch, id, &Masterid, &ImLost, pendingMasterOrders, elevatorStates, backupStates, <-ch.PeerUpdateCh)
+	go cases.HandleButtonPress(ch, id, &Masterid, &ImLost, pendingMasterOrders, elevatorStates, backupStates, pendingOrderRequests, &e)
 	for {
 		select {
 		// Activates upon change in peers-struct
@@ -114,31 +115,31 @@ func main() {
 		// }
 
 		// Activates upon local elevator button press. Adds this to "Elevator" struct "e"
-		case button := <-ch.DrvButtons:
-			cases.HandleButtonPress(ch, id, &Masterid, &ImLost, pendingMasterOrders, elevatorStates, backupStates, pendingOrderRequests, &e, button)
-			/*
-				timeout = time.After(7 * time.Second)
-				if button.Button == elevio.ButtonType(elevio.BT_Cab) {
+		//case button := <-ch.DrvButtons:
+		//	cases.HandleButtonPress(ch, id, &Masterid, &ImLost, pendingMasterOrders, elevatorStates, backupStates, pendingOrderRequests, &e, button)
+		/*
+			timeout = time.After(7 * time.Second)
+			if button.Button == elevio.ButtonType(elevio.BT_Cab) {
+				e.Requests[button.Floor][button.Button] = true
+				fsm.Fsm_onRequestButtonPress(&e, button.Floor, button.Button)
+				elevio.SetButtonLamp(button.Button, button.Floor, true)
+			} else if !ImLost {
+				if Masterid == id {
 					e.Requests[button.Floor][button.Button] = true
-					fsm.Fsm_onRequestButtonPress(&e, button.Floor, button.Button)
-					elevio.SetButtonLamp(button.Button, button.Floor, true)
-				} else if !ImLost {
-					if Masterid == id {
-						e.Requests[button.Floor][button.Button] = true
-						elevatorStates[id] = e
-						backupStates[id] = e
-						e.Requests[button.Floor][button.Button] = true
-						assigner.Assigner(elevatorStates, ch.AssignTx, pendingMasterOrders)
-						runelevator.RunElev(&e, pendingMasterOrders, id)
-					} else {
-						e.Requests[button.Floor][button.Button] = true
-						request := networkListeners.RequestMsg{button.Floor, button.Button, id}
-						ch.OrderTx <- request
-						pendingOrderRequests[request.OrderID] = request
-						fmt.Println("Added order to pendingOrders from:", request.OrderID)
-					}
+					elevatorStates[id] = e
+					backupStates[id] = e
+					e.Requests[button.Floor][button.Button] = true
+					assigner.Assigner(elevatorStates, ch.AssignTx, pendingMasterOrders)
+					runelevator.RunElev(&e, pendingMasterOrders, id)
+				} else {
+					e.Requests[button.Floor][button.Button] = true
+					request := networkListeners.RequestMsg{button.Floor, button.Button, id}
+					ch.OrderTx <- request
+					pendingOrderRequests[request.OrderID] = request
+					fmt.Println("Added order to pendingOrders from:", request.OrderID)
 				}
-			*/
+			}
+		*/
 		// Activates upon local elevator floor arrival. Updates "Elevator" struct "e".
 		case floor := <-ch.DrvFloors:
 

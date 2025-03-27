@@ -23,7 +23,6 @@ func PeersUpdate(
 	elevatorStates map[string]elevator.Elevator,
 	backupStates map[string]elevator.Elevator,
 	p peers.PeerUpdate,
-
 ) {
 	for {
 		select {
@@ -70,26 +69,30 @@ func HandleButtonPress(
 	backupStates map[string]elevator.Elevator,
 	pendingOrderRequests map[string]networkListeners.RequestMsg,
 	e *elevator.Elevator,
-	button elevio.ButtonEvent,
 ) {
-	if button.Button == elevio.ButtonType(elevio.BT_Cab) {
-		e.Requests[button.Floor][button.Button] = true
-		fsm.Fsm_onRequestButtonPress(e, button.Floor, button.Button)
-		elevio.SetButtonLamp(button.Button, button.Floor, true)
-	} else if !*ImLost {
-		if *Masterid == id {
-			e.Requests[button.Floor][button.Button] = true
-			elevatorStates[id] = *e
-			backupStates[id] = *e
-			e.Requests[button.Floor][button.Button] = true
-			assigner.Assigner(elevatorStates, ch.AssignTx, pendingMasterOrders)
-			runelevator.RunElev(e, pendingMasterOrders, id)
-		} else {
-			e.Requests[button.Floor][button.Button] = true
-			request := networkListeners.RequestMsg{button.Floor, button.Button, id}
-			ch.OrderTx <- request
-			pendingOrderRequests[request.OrderID] = request
-			fmt.Println("Added order to pendingOrders from:", request.OrderID)
+	for {
+		select {
+		case button := <-ch.DrvButtons:
+			if button.Button == elevio.ButtonType(elevio.BT_Cab) {
+				e.Requests[button.Floor][button.Button] = true
+				fsm.Fsm_onRequestButtonPress(e, button.Floor, button.Button)
+				elevio.SetButtonLamp(button.Button, button.Floor, true)
+			} else if !*ImLost {
+				if *Masterid == id {
+					e.Requests[button.Floor][button.Button] = true
+					elevatorStates[id] = *e
+					backupStates[id] = *e
+					e.Requests[button.Floor][button.Button] = true
+					assigner.Assigner(elevatorStates, ch.AssignTx, pendingMasterOrders)
+					runelevator.RunElev(e, pendingMasterOrders, id)
+				} else {
+					e.Requests[button.Floor][button.Button] = true
+					request := networkListeners.RequestMsg{button.Floor, button.Button, id}
+					ch.OrderTx <- request
+					pendingOrderRequests[request.OrderID] = request
+					fmt.Println("Added order to pendingOrders from:", request.OrderID)
+				}
+			}
 		}
 	}
 }
