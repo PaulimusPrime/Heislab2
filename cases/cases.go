@@ -25,33 +25,38 @@ func PeersUpdate(
 	p peers.PeerUpdate,
 
 ) {
-	var lostElevator string = "99" // To ensure there is no master when initializing the network
-	fmt.Printf("Peer update:\n")
-	fmt.Printf("  Peers:    %q\n", p.Peers)
-	fmt.Printf("  New:      %q\n", p.New)
-	fmt.Printf("  Lost:     %q\n", p.Lost)
+	for {
+		select {
+		case p := <-ch.PeerUpdateCh:
+			var lostElevator string = "99" // To ensure there is no master when initializing the network
+			fmt.Printf("Peer update:\n")
+			fmt.Printf("  Peers:    %q\n", p.Peers)
+			fmt.Printf("  New:      %q\n", p.New)
+			fmt.Printf("  Lost:     %q\n", p.Lost)
 
-	if len(p.Lost) > 0 {
-		lostElevator = p.Lost[0]
-	}
-	if lostElevator == *Masterid && len(p.Peers) > 0 {
-		master.MasterElection(p.Peers, id, Masterid)
-	}
-	for _, lostID := range p.Lost {
-		if lostID == id {
-			*ImLost = true
+			if len(p.Lost) > 0 {
+				lostElevator = p.Lost[0]
+			}
+			if lostElevator == *Masterid && len(p.Peers) > 0 {
+				master.MasterElection(p.Peers, id, Masterid)
+			}
+			for _, lostID := range p.Lost {
+				if lostID == id {
+					*ImLost = true
+				}
+				delete(pendingMasterOrders, lostID)
+				delete(elevatorStates, lostID)
+			}
+			if len(p.New) > 0 {
+				*ImLost = false
+				if *Masterid == id {
+					ch.BackupTx <- backupStates
+					fmt.Println("Master sending backup")
+				}
+				master.MasterElection(p.Peers, id, Masterid)
+				assigner.Assigner(backupStates, ch.AssignTx, pendingMasterOrders)
+			}
 		}
-		delete(pendingMasterOrders, lostID)
-		delete(elevatorStates, lostID)
-	}
-	if len(p.New) > 0 {
-		*ImLost = false
-		if *Masterid == id {
-			ch.BackupTx <- backupStates
-			fmt.Println("Master sending backup")
-		}
-		master.MasterElection(p.Peers, id, Masterid)
-		assigner.Assigner(backupStates, ch.AssignTx, pendingMasterOrders)
 	}
 }
 
@@ -100,5 +105,3 @@ func HandleFloorArrival(
 		prevFloorSensor = floor
 	}
 }
-
-func watchDogTimer() {}
