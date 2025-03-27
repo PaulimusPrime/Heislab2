@@ -49,10 +49,6 @@ func PeersUpdate(
 		if *Masterid == id {
 			ch.BackupTx <- backupStates
 			fmt.Println("Master sending backup")
-			// for i := 0; i < config.NumFloors; i++ {
-			// 	fmt.Println(backupStates["1"].Requests[i][elevio.BT_Cab])
-			// 	fmt.Println(backupStates["2"].Requests[i][elevio.BT_Cab])
-			// }
 		}
 		master.MasterElection(p.Peers, id, Masterid)
 		assigner.Assigner(backupStates, ch.AssignTx, pendingMasterOrders)

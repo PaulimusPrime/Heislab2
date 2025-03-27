@@ -47,7 +47,7 @@ func InitializeElevator(e *Elevator, id string) {
 			time.Sleep(time.Duration(config.InputPollRate))
 		} else {
 			elevio.SetMotorDirection(elevio.MD_Stop)
-			//time.Sleep(time.Second)
+			time.Sleep(time.Second)
 			break
 		}
 	}

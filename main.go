@@ -2,20 +2,23 @@ package main
 
 import (
 	// Imports from assigner
-	"elev_project/assigner"
+
 	// Imports from cases
 
 	// Imports from config
-	"elev_project/config"
+
 	// Imports from driver
+	"elev_project/assigner"
+	"elev_project/cases"
+	"elev_project/config"
 	"elev_project/driver/elevator"
 	"elev_project/driver/elevio"
 	"elev_project/driver/fsm"
-	"elev_project/driver/master"
-
-	//"elev_project/driver/master"
 	"elev_project/driver/runelevator"
 	"elev_project/driver/timer"
+	"time"
+
+	//"elev_project/driver/master"
 
 	// Imports from network
 	backgroundtasks "elev_project/network/backgroundTasks"
@@ -24,7 +27,6 @@ import (
 	// Library imports
 	"flag"
 	"fmt"
-	"time"
 )
 
 func main() {
@@ -62,54 +64,54 @@ func main() {
 		select {
 		// Activates upon change in peers-struct
 		case p := <-ch.PeerUpdateCh:
-			// cases.PeersUpdate(ch, id, &Masterid, &ImLost, &pendingMasterOrders, &elevatorStates, backupStates, p)
-			var lostElevator string = "99" // To ensure there is no master when initializing the network
-			fmt.Printf("Peer update:\n")
-			fmt.Printf("  Peers:    %q\n", p.Peers)
-			fmt.Printf("  New:      %q\n", p.New)
-			fmt.Printf("  Lost:     %q\n", p.Lost)
+			cases.PeersUpdate(ch, id, &Masterid, &ImLost, pendingMasterOrders, elevatorStates, backupStates, p)
+			// var lostElevator string = "99" // To ensure there is no master when initializing the network
+			// fmt.Printf("Peer update:\n")
+			// fmt.Printf("  Peers:    %q\n", p.Peers)
+			// fmt.Printf("  New:      %q\n", p.New)
+			// fmt.Printf("  Lost:     %q\n", p.Lost)
 
-			if len(p.Lost) > 0 {
-				lostElevator = p.Lost[0]
-			}
-			if lostElevator == Masterid && len(p.Peers) > 0 {
-				master.MasterElection(p.Peers, id, &Masterid)
-			}
-			for _, lostID := range p.Lost {
-				if lostID == id {
-					ImLost = true
-				}
-				delete(pendingMasterOrders, lostID)
-				delete(elevatorStates, lostID)
+			// if len(p.Lost) > 0 {
+			// 	lostElevator = p.Lost[0]
+			// }
+			// if lostElevator == Masterid && len(p.Peers) > 0 {
+			// 	master.MasterElection(p.Peers, id, &Masterid)
+			// }
+			// for _, lostID := range p.Lost {
+			// 	if lostID == id {
+			// 		ImLost = true
+			// 	}
+			// 	delete(pendingMasterOrders, lostID)
+			// 	delete(elevatorStates, lostID)
 
-				for i := 0; i < config.NumFloors; i++ {
-					temp := backupStates[lostID]
+			// 	for i := 0; i < config.NumFloors; i++ {
+			// 		temp := backupStates[lostID]
 
-					e.Requests[i][elevio.BT_HallDown] = e.Requests[i][elevio.BT_HallDown] || backupStates[lostID].Requests[i][elevio.BT_HallDown]
-					e.Requests[i][elevio.BT_HallUp] = e.Requests[i][elevio.BT_HallUp] || backupStates[lostID].Requests[i][elevio.BT_HallUp]
-					temp.Requests[i][elevio.BT_HallDown] = false
-					temp.Requests[i][elevio.BT_HallUp] = false
-					backupStates[lostID] = temp
-					elevatorStates[id] = e
-				}
-				if id == Masterid {
-					assigner.Assigner(elevatorStates, ch.AssignTx, pendingMasterOrders)
-				}
+			// 		e.Requests[i][elevio.BT_HallDown] = e.Requests[i][elevio.BT_HallDown] || backupStates[lostID].Requests[i][elevio.BT_HallDown]
+			// 		e.Requests[i][elevio.BT_HallUp] = e.Requests[i][elevio.BT_HallUp] || backupStates[lostID].Requests[i][elevio.BT_HallUp]
+			// 		temp.Requests[i][elevio.BT_HallDown] = false
+			// 		temp.Requests[i][elevio.BT_HallUp] = false
+			// 		backupStates[lostID] = temp
+			// 		elevatorStates[id] = e
+			// 	}
+			// 	if id == Masterid {
+			// 		assigner.Assigner(elevatorStates, ch.AssignTx, pendingMasterOrders)
+			// 	}
 
-			}
-			if len(p.New) > 0 {
-				ImLost = false
-				if Masterid == id {
-					for i := 0; i < 20; i++ {
-						ch.BackupTx <- backupStates
-						time.Sleep(50 * time.Millisecond)
-					}
+			// }
+			// if len(p.New) > 0 {
+			// 	ImLost = false
+			// 	if Masterid == id {
+			// 		for i := 0; i < 20; i++ {
+			// 			ch.BackupTx <- backupStates
+			// 			time.Sleep(50 * time.Millisecond)
+			// 		}
 
-					fmt.Println("Master sending backup")
-				}
-				master.MasterElection(p.Peers, id, &Masterid)
-				assigner.Assigner(backupStates, ch.AssignTx, pendingMasterOrders)
-			}
+			// 		fmt.Println("Master sending backup")
+			// 	}
+			// 	master.MasterElection(p.Peers, id, &Masterid)
+			// 	assigner.Assigner(backupStates, ch.AssignTx, pendingMasterOrders)
+			// }
 
 		// Activates upon local elevator button press. Adds this to "Elevator" struct "e"
 		case button := <-ch.DrvButtons:
@@ -233,10 +235,6 @@ func main() {
 				Motorstop = true
 				time.Sleep(1000 * time.Millisecond)
 				fmt.Println("MOTORSTOP")
-				// for i := 0; i < config.NumFloors; i++ {
-				// 	e.Requests[i][elevio.BT_HallUp] = false
-				// 	e.Requests[i][elevio.BT_HallDown] = false
-				// }
 			} else {
 				timeout = time.After(7 * time.Second)
 				fmt.Println("Timer Restarted")
