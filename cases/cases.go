@@ -117,6 +117,7 @@ func HandleButtonPress(
 					fmt.Println("Added order to pendingOrders from:", request.OrderID)
 				}
 			}
+
 		case floor := <-ch.DrvFloors:
 
 			if floor != -1 && floor != prevFloorSensor {
@@ -153,14 +154,88 @@ func HandleButtonPress(
 	}
 }
 
-func HandleFloorArrival(
+func HandleAssignments(
+	ch *networkListeners.Channels,
+	id string,
+	Masterid *string,
+	pendingMasterOrders map[string][][2]bool,
+	elevatorStates map[string]elevator.Elevator,
+	backupStates map[string]elevator.Elevator,
+	pendingOrderRequests map[string]networkListeners.RequestMsg,
 	e *elevator.Elevator,
-	prevFloorSensor *int,
-	floor *int,
+	Motorstop *bool,
+	timeout <-chan time.Time,
 ) {
-	if *floor != -1 && floor != prevFloorSensor {
-		fsm.Fsm_onFloorArrival(e, *floor)
-	} else {
-		prevFloorSensor = floor
+	for {
+		select {
+		case r := <-ch.OrderRx: //r for request
+			if *Masterid == id {
+				ack := networkListeners.AckMsg{OrderID: r.OrderID, AckType: "order"}
+				ch.AckTx <- ack
+				fmt.Println("Sent ACK from :", ack.OrderID)
+				updateDeadline := time.Now().Add(200 * time.Millisecond)
+				for time.Now().Before(updateDeadline) {
+					select {
+					case state := <-ch.StateRx:
+						backupStates[state.ID] = state.Message
+						elevatorStates[state.ID] = state.Message
+					default:
+						time.Sleep(50 * time.Millisecond)
+					}
+				}
+				assigner.Assigner(elevatorStates, ch.AssignTx, pendingMasterOrders)
+			}
+
+		case state := <-ch.StateRx:
+			backupStates[state.ID] = state.Message
+			elevatorStates[state.ID] = state.Message
+			fsm.SetHallLights(elevatorStates)
+
+		case ack := <-ch.AckRx:
+			if ack.AckType == "order" {
+				fmt.Println("Received ACK from:", ack.OrderID)
+				delete(pendingOrderRequests, ack.OrderID) // Remove acknowledged order from pendingOrderRequests
+			} else if ack.AckType == "assign" {
+				if _, exists := pendingMasterOrders[ack.OrderID]; exists {
+					delete(pendingMasterOrders, ack.OrderID)
+					fmt.Println("Order acknowledged and removed from pendingMasterOrders:", ack.OrderID)
+				}
+			}
+
+		case <-time.After(200 * time.Millisecond):
+			for _, request := range pendingOrderRequests {
+				ch.OrderTx <- request
+			}
+			for id, orders := range pendingMasterOrders {
+				ch.AssignTx <- map[string][][2]bool{id: orders}
+				fmt.Printf("Id: %s not acknowledged. Resending orders\n", id)
+			}
+
+		case AssRec := <-ch.AssignRx:
+			ack := networkListeners.AckMsg{OrderID: id, AckType: "assign"}
+			ch.AckTx <- ack
+			timeout = time.After(7 * time.Second)
+			runelevator.RunElev(e, AssRec, id)
+
+		case backup := <-ch.BackupRx:
+			e.Requests = backup[id].Requests
+
+			for i := 0; i < config.NumFloors; i++ {
+				if e.Requests[i][elevio.BT_Cab] {
+					fsm.Fsm_onRequestButtonPress(e, i, elevio.BT_Cab)
+				}
+			}
+
+		case <-timeout:
+			if e.Behaviour == elevator.EB_Moving {
+				ch.PeerTxEnable <- false
+				*Motorstop = true
+				time.Sleep(1000 * time.Millisecond)
+				fmt.Println("MOTORSTOP")
+			} else {
+				timeout = time.After(7 * time.Second)
+				fmt.Println("Timer Restarted")
+			}
+		}
 	}
 }
