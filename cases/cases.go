@@ -2,6 +2,7 @@ package cases
 
 import (
 	"elev_project/assigner"
+	"elev_project/config"
 	"elev_project/driver/elevator"
 	"elev_project/driver/elevio"
 	"elev_project/driver/fsm"
@@ -23,6 +24,7 @@ func PeersUpdate(
 	elevatorStates map[string]elevator.Elevator,
 	backupStates map[string]elevator.Elevator,
 	p peers.PeerUpdate,
+	e *elevator.Elevator,
 ) {
 	for {
 		select {
@@ -45,7 +47,22 @@ func PeersUpdate(
 				}
 				delete(pendingMasterOrders, lostID)
 				delete(elevatorStates, lostID)
+
+				for i := 0; i < config.NumFloors; i++ {
+					temp := backupStates[lostID]
+
+					e.Requests[i][elevio.BT_HallDown] = e.Requests[i][elevio.BT_HallDown] || backupStates[lostID].Requests[i][elevio.BT_HallDown]
+					e.Requests[i][elevio.BT_HallUp] = e.Requests[i][elevio.BT_HallUp] || backupStates[lostID].Requests[i][elevio.BT_HallUp]
+					temp.Requests[i][elevio.BT_HallDown] = false
+					temp.Requests[i][elevio.BT_HallUp] = false
+					backupStates[lostID] = temp
+					elevatorStates[id] = *e
+				}
+				if id == *Masterid {
+					assigner.Assigner(elevatorStates, ch.AssignTx, pendingMasterOrders)
+				}
 			}
+
 			if len(p.New) > 0 {
 				*ImLost = false
 				if *Masterid == id {
