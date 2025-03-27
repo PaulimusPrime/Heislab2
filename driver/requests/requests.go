@@ -11,7 +11,6 @@ type DirnBehaviourPair struct {
 	ElevatorBehaviour elevator.ElevatorBehaviour
 }
 
-// Is the call to a floor above
 func RequestsAbove(e *elevator.Elevator) bool {
 	for f := e.Floor + 1; f < config.NumFloors; f++ {
 		for b := 0; b < config.NumButtons; b++ {
@@ -23,7 +22,6 @@ func RequestsAbove(e *elevator.Elevator) bool {
 	return false
 }
 
-// Is the call to a floor below
 func RequestsBelow(e *elevator.Elevator) bool {
 	for f := 0; f < e.Floor; f++ {
 		for b := 0; b < config.NumButtons; b++ {
@@ -36,7 +34,6 @@ func RequestsBelow(e *elevator.Elevator) bool {
 
 }
 
-// Is the call to the current floor
 func RequestsHere(e *elevator.Elevator) bool {
 	for b := 0; b < config.NumButtons; b++ {
 		if e.Requests[e.Floor][b] {
@@ -46,10 +43,7 @@ func RequestsHere(e *elevator.Elevator) bool {
 	return false
 }
 
-// Function to decide direction
 func RequestsChooseDirection(e *elevator.Elevator) DirnBehaviourPair {
-	// fmt.Printf("%v\n",e.Dirn,
-	// "\n above: ",RequestsAbove(e),"\n here: ",RequestsHere(e),"\n below: ", RequestsBelow(e))
 	switch e.Dirn {
 	case elevio.MD_Up:
 		if RequestsAbove(e) {
@@ -87,7 +81,6 @@ func RequestsChooseDirection(e *elevator.Elevator) DirnBehaviourPair {
 	}
 }
 
-// Should the elevator stop at this floor?
 func RequestShouldStop(e *elevator.Elevator) bool {
 	switch e.Dirn {
 	case elevio.MD_Down:

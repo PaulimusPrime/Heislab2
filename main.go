@@ -4,9 +4,7 @@ import (
 	"elev_project/cases"
 	"elev_project/config"
 	"elev_project/driver/elevator"
-
 	"elev_project/network"
-
 	"flag"
 	"time"
 )

@@ -32,12 +32,11 @@ func Assigner(elevatorStates map[string]elevator.Elevator, assignTx chan<- map[s
 		panic("OS not supported")
 	}
 
-	// Extract elevators slice for processing HallRequests
 	elevators := []elevator.Elevator{}
 	for _, e := range elevatorStates {
 		elevators = append(elevators, e)
 	}
-	// Initialize HallRequests dynamically
+
 	HallRequests := make([][2]bool, config.NumFloors)
 
 	for floor := 0; floor < config.NumFloors; floor++ {
@@ -48,11 +47,10 @@ func Assigner(elevatorStates map[string]elevator.Elevator, assignTx chan<- map[s
 		}
 		HallRequests[floor] = [2]bool{upRequest, downRequest}
 	}
-	// fmt.Println("Generated HallRequests: \n", HallRequests)
 
-	// Construct the States map with correct elevator IDs
+
 	States := make(map[string]HRAElevState)
-	for id, e := range elevatorStates { // Directly using the map
+	for id, e := range elevatorStates { 
 		cabRequests := make([]bool, config.NumFloors)
 		for floor := 0; floor < config.NumFloors; floor++ {
 			cabRequests[floor] = e.Requests[floor][2]

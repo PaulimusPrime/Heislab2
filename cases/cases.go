@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-// ------ Replacing switch in main with goroutines
-
 func PeersUpdate(
 	ch *network.Channels,
 	id string,
@@ -30,7 +28,7 @@ func PeersUpdate(
 	for {
 		select {
 		case p := <-ch.PeerUpdateCh:
-			var lostElevator string = "99" // To ensure there is no master when initializing the network
+			var lostElevator string = "99"
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", p.Peers)
 			fmt.Printf("  New:      %q\n", p.New)
@@ -124,12 +122,10 @@ func HandleButtonPress(
 			} else {
 				prevFloorSensor = floor
 			}
-			// cases.HandleFloorArrival(&e, &floor, &prevFloorSensor)
 			timeout = time.After(7 * time.Second)
 			*Motorstop = false
 			ch.PeerTxEnable <- true
 
-		// Starts door timer if not obstructed
 		case <-timer.TimerChannel:
 			if !obstruction {
 				fsm.Fsm_onDoorTimeout(e)
@@ -140,11 +136,10 @@ func HandleButtonPress(
 				ch.PeerTxEnable <- false
 				timer.StartTimer(config.ObstructionDurationS)
 			}
-		// Obstruction activated.
+	
 		case <-ch.DrvObstr:
 			obstruction = !obstruction
 
-		// Stop button pressed.
 		case stop := <-ch.DrvStop:
 			if stop {
 				elevio.SetMotorDirection(elevio.MD_Stop)
@@ -195,7 +190,7 @@ func HandleAssignments(
 		case ack := <-ch.AckRx:
 			if ack.AckType == "order" {
 				fmt.Println("Received ACK from:", ack.OrderID)
-				delete(pendingOrderRequests, ack.OrderID) // Remove acknowledged order from pendingOrderRequests
+				delete(pendingOrderRequests, ack.OrderID)
 			} else if ack.AckType == "assign" {
 				if _, exists := pendingMasterOrders[ack.OrderID]; exists {
 					delete(pendingMasterOrders, ack.OrderID)
