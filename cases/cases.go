@@ -133,7 +133,7 @@ func HandleButtonPress(
 		case <-timer.TimerChannel:
 			if !obstruction {
 				fsm.Fsm_onDoorTimeout(e)
-				fmt.Println("Timed out \n")
+				fmt.Println("Timed out")
 			} else {
 				requests.RequestsClearAtCurrentFloor(e)
 				elevio.SetDoorOpenLamp(true)
@@ -182,7 +182,7 @@ func HandleAssignments(
 ) {
 	for {
 		select {
-		case r := <-ch.OrderRx: 
+		case r := <-ch.OrderRx:
 			if *Masterid == id {
 				ack := network.AckMsg{OrderID: r.OrderID, AckType: "order"}
 				ch.AckTx <- ack

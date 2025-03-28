@@ -9,10 +9,10 @@ func MasterElection(peers []string, id string, Masterid *string) {
 	if id == peers[0] {
 		fmt.Printf("I am master\n")
 		*Masterid = id
-		fmt.Print(*Masterid,"\n")
+		fmt.Print(*Masterid, "\n")
 	} else {
 		fmt.Printf("I am slave\n")
 		*Masterid = peers[0]
-		fmt.Print(*Masterid,"\n")
+		fmt.Print(*Masterid, "\n")
 	}
 }

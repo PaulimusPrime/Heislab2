@@ -1,6 +1,6 @@
 # cases Package
 
-This package handles elevator event-driven processes, including peer updates, button presses, and order assignments.
+This package handles all elevator event- and network-driven processes, including peer updates, button presses, and order assignments.
 
 ## Functions
 
